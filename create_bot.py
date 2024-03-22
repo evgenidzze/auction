@@ -4,6 +4,8 @@ from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler_di import ContextSchedulerDecorator
 
+from config import BOT_TOKEN
+
 job_stores = {
     "default": RedisJobStore(
         jobs_key="dispatched_trips_jobs", run_times_key="dispatched_trips_running",
@@ -13,6 +15,6 @@ job_stores = {
 
 scheduler = ContextSchedulerDecorator(AsyncIOScheduler(jobstores=job_stores))
 storage = MemoryStorage()
-bot = Bot('7123990335:AAEoZvtOYB3H-U1AaYh8C9mIwNTyB45O8Mk')  # testing
+bot = Bot(BOT_TOKEN)  # testing
 dp = Dispatcher(bot, storage=storage)
 scheduler.start()
