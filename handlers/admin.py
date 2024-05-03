@@ -22,7 +22,6 @@ async def user_access(message: types.Message, state: FSMContext):
     try:
         user = await get_user(user_id)
         kb = InlineKeyboardMarkup()
-        print(user.is_blocked)
         if user.is_blocked:
             kb.add(InlineKeyboardButton(text='🔑 Розблокувати', callback_data=f'access_{user_id}_unblock'))
             await message.answer(text='🚫 Користувач заблокований.', reply_markup=kb)

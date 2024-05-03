@@ -1,12 +1,14 @@
 import datetime
-from sqlalchemy import String, Integer, Text, ForeignKey, select, update, delete, Boolean, TIMESTAMP, text
+
+from aiogram.types import BotCommand
+from sqlalchemy import String, Integer, Text, ForeignKey, select, update, delete, Boolean, TIMESTAMP, text, func
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from config import DB_PASS, DB_NAME, DB_HOST, DB_USER
+from create_bot import bot
 
 DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
-
 engine = create_async_engine(url=DATABASE_URL)
 async_session = async_sessionmaker(engine)
 
@@ -19,8 +21,6 @@ class User(Base):
     __tablename__ = 'User'
     id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True)
     telegram_id: Mapped[str] = mapped_column(primary_key=True, type_=String(45), nullable=False, unique=True)
-    city: Mapped[str] = mapped_column(String(255), nullable=True, unique=True)
-    currency: Mapped[str] = mapped_column(String(45), nullable=False)
     language: Mapped[str] = mapped_column(String(45), nullable=False)
     is_blocked: Mapped[bool] = mapped_column(nullable=False, default=False)
     reserve_time_minute: Mapped[datetime.time] = mapped_column(nullable=False,
@@ -30,6 +30,24 @@ class User(Base):
 
     def __repr__(self):
         return f'<User {self.telegram_id}>'
+
+
+class Question(Base):
+    __tablename__ = 'Question'
+    id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True)
+    question: Mapped[str] = mapped_column(String(255), nullable=False)
+    sender_id: Mapped[str] = mapped_column(String(45), nullable=False)
+    lot_id: Mapped[int] = mapped_column(ForeignKey('Lot.id'), nullable=False)
+    recipient_id: Mapped[str] = mapped_column(String(45), nullable=False)
+
+
+class Answer(Base):
+    __tablename__ = 'Answer'
+    id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True)
+    answer: Mapped[str] = mapped_column(String(255), nullable=False)
+    sender_id: Mapped[str] = mapped_column(String(45), nullable=False)
+    lot_id: Mapped[int] = mapped_column(ForeignKey('Lot.id'), nullable=False)
+    recipient_id: Mapped[str] = mapped_column(String(45), nullable=False)
 
 
 class Lot(Base):
@@ -50,6 +68,11 @@ class Lot(Base):
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     lot_link: Mapped[str] = mapped_column(String(255), nullable=True)
     message_id: Mapped[str] = mapped_column(String(45), nullable=True)
+    paypal_token: Mapped[str] = mapped_column(String(255), nullable=True)
+    currency: Mapped[str] = mapped_column(String(45), nullable=True)
+    city: Mapped[str] = mapped_column(String(45), nullable=True)
+    photos_link: Mapped[str] = mapped_column(String(255), nullable=True)
+    bid_count: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
 
 
 async def add_new_user(telegram_id, language):
@@ -86,9 +109,14 @@ async def create_lot(fsm_data, owner_id):
             description=fsm_data.get('description'),
             start_price=fsm_data.get('price'),
             lot_time_living=fsm_data.get('lot_time_living'),
-            photo_id=fsm_data.get('photo'),
-            video_id=fsm_data.get('video'),
-            price_steps=fsm_data.get('price_steps')
+            photo_id=fsm_data.get('photo_id'),
+            video_id=fsm_data.get('video_id'),
+            price_steps=fsm_data.get('price_steps'),
+            currency=fsm_data.get('currency'),
+            city=fsm_data.get('city'),
+            last_bid=fsm_data.get('price'),
+            photos_link=fsm_data.get('photos_link')
+
         )
         session.add(new_lot)
         await session.commit()
@@ -119,9 +147,10 @@ async def delete_lot_sql(lot_id):
         await session.commit()
 
 
-async def make_bid_sql(lot_id, price, bidder_id):
+async def make_bid_sql(lot_id, price, bidder_id, bid_count):
     async with async_session() as session:
-        stmt = update(Lot).where(Lot.id == lot_id).values(last_bid=price, bidder_telegram_id=bidder_id)
+        stmt = update(Lot).where(Lot.id == lot_id).values(last_bid=price, bidder_telegram_id=bidder_id,
+                                                          bid_count=bid_count + 1)
         await session.execute(stmt)
         await session.commit()
 
@@ -137,9 +166,92 @@ async def get_user(user_id):
     async with async_session() as session:
         stmt = select(User).where(User.telegram_id == user_id)
         res = await session.execute(stmt)
-        return res.fetchone()[0]
+        user = res.fetchone()
+        if user:
+            return user[0]
+
+
+async def create_question(question, sender_id, lot_id, owner_id):
+    async with async_session() as session:
+        new_question = Question(
+            question=question,
+            sender_id=sender_id,
+            lot_id=lot_id,
+            recipient_id=owner_id
+        )
+        session.add(new_question)
+        await session.commit()
+        await session.refresh(new_question)
+        return str(new_question.id)
+
+
+async def create_answer(answer, sender_id, lot_id, recipient_id):
+    async with async_session() as session:
+        new_question = Answer(
+            answer=answer,
+            sender_id=sender_id,
+            lot_id=lot_id,
+            recipient_id=recipient_id,
+        )
+        session.add(new_question)
+        await session.commit()
+        await session.refresh(new_question)
+        return str(new_question.id)
+
+
+async def get_question(question_id):
+    async with async_session() as session:
+        stmt = select(Question).where(Question.id == question_id)
+        res = await session.execute(stmt)
+        question = res.scalars().first()
+        return question
+
+
+async def get_question_or_answer(recipient_id, model_name: str):
+    model = Answer if model_name == 'answer' else Question
+    async with async_session() as session:
+        stmt = select(model).where(model.recipient_id == recipient_id)
+        res = await session.execute(stmt)
+        res = res.scalars().all()
+        return res
+
+
+async def get_answer(answer_id):
+    async with async_session() as session:
+        stmt = select(Answer).where(Answer.id == answer_id)
+        res = await session.execute(stmt)
+        answer = res.scalars().first()
+        return answer
 
 
 async def on_startup(dp):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await bot.set_my_commands([BotCommand('/start', 'Change language / Змінити мову'),
+                               BotCommand('/main_menu', 'Main menu / Головне меню')])
+
+
+async def messages_count(owner_id, mess_type):
+    async with async_session() as session:
+        if mess_type == 'answer':
+            model = Answer
+        elif mess_type == 'question':
+            model = Question
+        stmt = select(func.count("*")).select_from(model).where(model.recipient_id == owner_id)
+
+        res = await session.execute(stmt)
+        return res.scalars().all()[0]
+
+
+async def delete_answer(answer_id):
+    async with async_session() as session:
+        stmt = delete(Answer).where(Answer.id == answer_id)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def delete_question_db(question_id):
+    async with async_session() as session:
+        stmt = delete(Question).where(Question.id == question_id)
+        await session.execute(stmt)
+        await session.commit()

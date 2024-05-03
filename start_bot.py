@@ -14,5 +14,4 @@ logging.basicConfig(level=logging.INFO, filename='logs.log')
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 logging.getLogger().addHandler(console_handler)
-
 executor.start_polling(dispatcher=dp, on_startup=on_startup, skip_updates=True)

@@ -24,3 +24,5 @@ SQLAlchemy==2.0.28
 typing_extensions==4.10.0
 tzlocal==5.2
 yarl==1.9.4
+
+paypalrestsdk~=1.13.3
