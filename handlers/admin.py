@@ -4,6 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from db_manage import get_user, update_user_sql
+from keyboards.kb import main_kb, cancel_kb
 
 
 class FSMAdmin(StatesGroup):
@@ -13,7 +14,7 @@ class FSMAdmin(StatesGroup):
 async def admin(message: types.Message):
     await FSMAdmin.user_id.set()
     await message.answer(text='👋🏻 Вітаю!\n'
-                              'Надішліть <b>id</b> користувача для надання або скасування прав:', parse_mode='html')
+                              'Надішліть <b>id</b> користувача для надання або скасування прав:', parse_mode='html', reply_markup=cancel_kb)
 
 
 async def user_access(message: types.Message, state: FSMContext):

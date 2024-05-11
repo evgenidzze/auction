@@ -12,7 +12,7 @@ from telegraph import Telegraph
 from create_bot import bot, scheduler, i18n, _, storage_group
 from db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
     get_user, update_user_sql, update_lot_sql, create_question, get_question, \
-    create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db
+    create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User
 from handlers.middleware import HiddenUser
 from keyboards.kb import language_kb, main_kb, cancel_kb, lot_time_kb, \
     create_auction, back_to_main_btn, cancel_btn, delete_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
@@ -95,18 +95,17 @@ async def lot_question(message: types.Message, state: FSMContext):
 
 
 async def main_menu(call, state: FSMContext):
-    text = _("Вітаю, <b>{first_name}</b>\n\n<i>Що таке <a href='https://telegra.ph/Antisnajper-03-31'>"
-             "<b>⏱ Антиснайпер?</b></a></i>\n").format(first_name=call.from_user.username)
+    clean_text = "Вітаю, <b>{first_name}!</b><a href='https://telegra.ph/file/5f63d10b734d545a032cc.jpg'>⠀</a>\n"
+    text = _(clean_text).format(first_name=call.from_user.username)
     if isinstance(call, types.CallbackQuery):
         if call.data in ('en', 'uk'):
             await add_new_user(telegram_id=call.from_user.id, language=call.data)
-            text = _("Вітаю, <b>{first_name}</b>\n\n<i>Що таке <a href='https://telegra.ph/Antisnajper-03-31'>"
-                     "<b>⏱ Антиснайпер?</b></a></i>\n", locale=call.data).format(first_name=call.from_user.username)
+            text = _(clean_text, locale=call.data).format(first_name=call.from_user.username)
         await state.reset_state(with_data=True)
         await call.message.edit_text(text=text, parse_mode='html',
-                                     reply_markup=main_kb, disable_web_page_preview=True)
+                                     reply_markup=main_kb)
     else:
-        await call.answer(text=text, parse_mode='html', reply_markup=main_kb, disable_web_page_preview=True)
+        await call.answer(text=text, parse_mode='html', reply_markup=main_kb)
     await state.reset_state(with_data=True)
 
 
@@ -128,6 +127,7 @@ async def question_list(call: types.CallbackQuery):
             await call.message.edit_text(text=_('🤷🏻‍♂️ У вас немає повідомлень.'), reply_markup=quest_answ_kb)
         except:
             pass
+
 
 async def answer_question(call: types.CallbackQuery, state: FSMContext):
     question_id = call.data
@@ -166,6 +166,7 @@ async def answers_list(call: types.CallbackQuery):
             await call.message.edit_text(text=_('🤷🏻‍♂️ У вас немає повідомлень.'), reply_markup=quest_answ_kb)
         except:
             pass
+
 
 async def choose_answer(call: types.CallbackQuery, state: FSMContext):
     answer_id = call.data
@@ -297,6 +298,7 @@ async def ask_media(call: [types.CallbackQuery, types.Message], state: FSMContex
 async def ready_lot(messages: List[types.Message], state: FSMContext):
     photos_id, videos_id = [], []
     html = ''
+    print(messages)
     for message in messages:
         if message.content_type == 'photo':
             photos_id.append(message.photo[-1].file_id)
@@ -368,6 +370,7 @@ async def make_bid(message: types.CallbackQuery):
     if lot:
         last_bid = lot.last_bid
         owner_id = lot.owner_telegram_id
+        last_bidder_id = lot.bidder_telegram_id
         bid_count = lot.bid_count
         user = await get_user(owner_id)
         currency = lot.currency
@@ -376,29 +379,39 @@ async def make_bid(message: types.CallbackQuery):
             await message.answer(text=_('❌ На свій лот не можна робити ставку.'))
             return
         job = scheduler.get_job(lot_id)
-        cur_time = datetime.datetime.now().replace(tzinfo=None)
-        next_run_time = job.next_run_time.replace(tzinfo=None)
-        left_job_time: datetime.timedelta = next_run_time - cur_time
-        left_minutes = int(left_job_time.total_seconds() // 60)
-        if left_minutes <= anti_sniper_time.minute:
-            new_next_run_time = cur_time + datetime.timedelta(minutes=anti_sniper_time.minute)
-            """continue auction (uncomment)"""
-            scheduler.modify_job(lot_id, next_run_time=new_next_run_time)
-        price = int(bid_data[1]) + last_bid
-        await make_bid_sql(lot_id, price, bidder_id=message.from_user.id, bid_count=bid_count)
-        lot_post = message.message
-        caption = await new_bid_caption(lot_post, message.from_user.first_name, price, currency,
-                                        owner_locale=user.language, bid_count=bid_count + 1,
-                                        photos_link=lot.photos_link)
-        await bot.edit_message_caption(chat_id=channel_id, message_id=lot_post.message_id, caption=caption,
-                                       reply_markup=lot_post.reply_markup, parse_mode='html')
-        await bot.send_message(chat_id=owner_id,
-                               text=_(
-                                   "💸 Нова ставка на ваш лот!\n\n<a href='{lot_post}'><b>👉 Перейти до лоту.</b></a>").format(
-                                   lot_post=lot_post.url),
-                               parse_mode='html',
-                               reply_markup=main_kb)
-        await message.answer(text=_('✅ Ставку прийнято!'))
+        if job:
+            cur_time = datetime.datetime.now().replace(tzinfo=None)
+            next_run_time = job.next_run_time.replace(tzinfo=None)
+            left_job_time: datetime.timedelta = next_run_time - cur_time
+            left_minutes = int(left_job_time.total_seconds() // 60)
+            if left_minutes <= anti_sniper_time.minute:
+                new_next_run_time = cur_time + datetime.timedelta(minutes=anti_sniper_time.minute)
+                """continue auction (uncomment)"""
+                scheduler.modify_job(lot_id, next_run_time=new_next_run_time)
+            price = int(bid_data[1]) + last_bid
+            await make_bid_sql(lot_id, price, bidder_id=message.from_user.id, bid_count=bid_count)
+            lot_post = message.message
+            caption = await new_bid_caption(lot_post, message.from_user.first_name, price, currency,
+                                            owner_locale=user.language, bid_count=bid_count + 1,
+                                            photos_link=lot.photos_link)
+            await bot.edit_message_caption(chat_id=channel_id, message_id=lot_post.message_id, caption=caption,
+                                           reply_markup=lot_post.reply_markup, parse_mode='html')
+            await bot.send_message(chat_id=owner_id,
+                                   text=_(
+                                       "💸 Нова ставка на ваш лот!\n\n<a href='{lot_post}'><b>👉 Перейти до лоту.</b></a>").format(
+                                       lot_post=lot_post.url),
+                                   parse_mode='html',
+                                   reply_markup=main_kb)
+            if last_bidder_id:
+                await bot.send_message(chat_id=last_bidder_id,
+                                       text=_(
+                                           "👋 Вашу ставку на лот <a href='{lot_post}'><b>{lot_name}</b></a> перебили.\n\n"
+                                           "<a href='{lot_post}'><b>👉 Перейти до лоту.</b></a>").format(
+                                           lot_post=lot_post.url, lot_name=lot.description), reply_markup=main_kb,
+                                       parse_mode='html')
+            await message.answer(text=_('✅ Ставку прийнято!'))
+        else:
+            await message.answer(text=_('Лот ще не опубліковано.'))
     else:
         await message.answer(text=_('❌ Аукціон закінчено'))
 
@@ -642,8 +655,11 @@ async def new_sniper_time(call: types.CallbackQuery, state: FSMContext):
 
 
 async def help_(call: types.CallbackQuery):
-    await call.message.edit_text(text=_('По всім запитанням @SportPhaseOP'),
-                                 reply_markup=InlineKeyboardMarkup().add(back_to_main_btn))
+    await call.message.edit_text(text=_("По всім запитанням @Oleksandr_Polis\n\n"
+                                        "<i>Що таке <a href='https://telegra.ph/Antisnajper-03-31'>"
+                                        "<b>⏱ Антиснайпер?</b></a></i>\n"),
+                                 reply_markup=InlineKeyboardMarkup().add(back_to_main_btn), parse_mode='html',
+                                 disable_web_page_preview=True)
 
 
 async def get_contact(call: types.CallbackQuery):
@@ -651,18 +667,20 @@ async def get_contact(call: types.CallbackQuery):
     lot_id = call.data.split('_')[-1]
     lot = await get_lot(lot_id)
     token = lot.paypal_token
-    user_tg = await bot.get_chat(bidder_id)
+    winner_tg = await bot.get_chat(bidder_id)
+    owner: User = await get_user(call.from_user.id)
+
     await call.answer()
     if await payment_approved(token):
         await call.message.answer(text=_("<b>📦 Лот {desc}...</b>\n"
                                          "✅Оплата пройшла успішно!\n"
                                          "Можете зв'язатись з переможцем https://t.me/{username}.")
-                                  .format(desc=lot.description[:15], username=user_tg.username),
+                                  .format(desc=lot.description[:15], username=winner_tg.username),
                                   reply_markup=main_kb)
         await delete_lot_sql(lot_id=lot.id)
 
     else:
-        kb = await payment_kb_generate(bidder_id, token, lot_id)
+        kb = await payment_kb_generate(bidder_id, token, lot_id, owner_locale=owner.language)
         await call.message.answer(text=_('<b>📦 Лот {desc}...</b>\n'
                                          '❌ Оплату не зафіксовано.\n'
                                          "Щоб зв'язатись з переможцем, оплатіть комісію і натисніть <b>Отримати контакт</b>.").format(

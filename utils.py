@@ -161,22 +161,25 @@ async def translate_kb(kb: InlineKeyboardMarkup, locale, owner_id):
     if kb:
         for row in kb.inline_keyboard:
             for button in row:
+                if any(word in button.text for word in ('Повідомлення', 'Messages')):
+                    button.text = ' '.join(button.text.split(' ')[:2])
+
                 button.text = _(button.text, locale=locale)
                 if any(text in button.text for text in
-                       ('💬 Повідомлення', '💬 Messages', '❔ Запитання', "❔ Quesstions", '💬 Answers', "💬 Відповіді")):
+                       ('💬 Повідомлення', '💬 Messages', '❔ Запитання', "❔ Questions", '💬 Answers', "💬 Відповіді")):
                     if any(text in button.text for text in ('Повідомлення', 'Messages')):
                         questions_count = await messages_count(owner_id, 'question')
                         answers_count = await messages_count(owner_id, 'answer')
                         mes_count = questions_count + answers_count
-                    elif any(text in button.text for text in ('Запитання', "Quesstions")):
+                    elif any(text in button.text for text in ('Запитання', "Questions")):
                         mes_count = await messages_count(owner_id, 'question')
                     elif any(text in button.text for text in ('Answers', "Відповіді")):
                         mes_count = await messages_count(owner_id, 'answer')
                     button.text = button.text.split(' ')
                     if len(button.text) == 3:
-                        button.text[-1] = f'({mes_count})'
+                        button.text[-1] = '({mes_count})'.format(mes_count=mes_count)
                     else:
-                        button.text.append(f'({mes_count})')
+                        button.text.append('({mes_count})'.format(mes_count=mes_count))
                     button.text = ' '.join(button.text)
         return kb
 
