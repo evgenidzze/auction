@@ -5,10 +5,10 @@ from sqlalchemy import String, Integer, Text, ForeignKey, select, update, delete
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from utils.config import DB_PASS, DB_NAME, DB_HOST, DB_USER
+from utils.config import DB_PASS, DB_NAME, DB_HOST, DB_USER, PORT
 from create_bot import bot
 
-DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{PORT}/{DB_NAME}"
 engine = create_async_engine(url=DATABASE_URL)
 async_session = async_sessionmaker(engine)
 
