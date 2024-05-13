@@ -29,7 +29,7 @@ class HiddenUser(BaseMiddleware):
 
 class Localization(I18nMiddleware):
     async def get_user_locale(self, action: str, args: tuple) -> Optional[str]:
-        from db_manage import get_user
+        from db.db_manage import get_user
         if isinstance(args[0], (types.Message, types.CallbackQuery)):
             user_id = args[0].from_user.id
         else:
@@ -44,7 +44,7 @@ class MyBot(Bot):
     async def send_message(self, *args, **kwargs):
         from create_bot import i18n
         user_locale = await i18n.get_user_locale(action="action", args=(kwargs.get('chat_id'),))
-        from utils import translate_kb
+        from utils.utils import translate_kb
         kwargs['reply_markup'] = await translate_kb(kwargs.get('reply_markup'), locale=user_locale, owner_id=kwargs.get('chat_id'))
         await super().send_message(*args, **kwargs)
 
@@ -59,7 +59,7 @@ class MyBot(Bot):
                                 reply_markup: typing.Union[types.InlineKeyboardMarkup,
                                 None] = None,
                                 ) -> types.Message or base.Boolean:
-        from utils import translate_kb
+        from utils.utils import translate_kb
         from create_bot import i18n
         user_locale = await i18n.get_user_locale(action="action", args=(chat_id,))
         reply_markup = await translate_kb(deepcopy(reply_markup), user_locale, owner_id=chat_id)

@@ -5,12 +5,12 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text, MediaGroupFilter
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.deep_linking import decode_payload
 from aiogram_media_group import media_group_handler
 from telegraph import Telegraph
 from create_bot import bot, scheduler, i18n, _, storage_group
-from db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
+from db.db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
     get_user, update_user_sql, update_lot_sql, create_question, get_question, \
     create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User
 from handlers.middleware import HiddenUser
@@ -18,7 +18,7 @@ from keyboards.kb import language_kb, main_kb, cancel_kb, lot_time_kb, \
     create_auction, back_to_main_btn, cancel_btn, delete_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
     decline_lot_deletion_btn, accept_lot_deletion_btn, anti_kb, ready_to_publish_kb, publish_btn, quest_answ_kb, \
     back_to_messages, back_to_questions_kb, back_to_answers_kb, back_to_answers_btn, back_to_questions
-from utils import lot_ending, create_user_lots_kb, send_post, payment_approved, payment_kb_generate, \
+from utils.utils import lot_ending, create_user_lots_kb, send_post, payment_approved, payment_kb_generate, \
     new_bid_caption, send_post_fsm, create_photo_album, create_question_kb, create_answers_kb, username_in_text, \
     phone_in_text
 

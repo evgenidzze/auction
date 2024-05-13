@@ -2,7 +2,7 @@ import logging
 
 from aiogram.utils import executor
 
-from db_manage import on_startup
+from db.db_manage import on_startup
 from handlers.admin import register_admin_handlers
 from handlers.client import register_client_handlers
 from create_bot import dp

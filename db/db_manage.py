@@ -4,8 +4,8 @@ from aiogram.types import BotCommand
 from sqlalchemy import String, Integer, Text, ForeignKey, select, update, delete, Boolean, TIMESTAMP, text, func
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from config import DB_PASS, DB_NAME, DB_HOST, DB_USER
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from utils.config import DB_PASS, DB_NAME, DB_HOST, DB_USER
 from create_bot import bot
 
 DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"

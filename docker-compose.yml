@@ -1,0 +1,26 @@
+version: '3.7'
+services:
+  redis:
+    image: redis:alpine
+    restart: on-failure
+    ports:
+      - "6379:6379"
+  db:
+    image: mysql:8.0.36
+    container_name: mysql-8.0.36
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+      - my-db:/var/lib/mysql
+  bot:
+    build: .
+    command: bash -c "alembic upgrade head && cd ../.. && python start_bot.py"
+    env_file:
+      - ./.env
+    restart: always
+    depends_on:
+      - db
+      - redis
+volumes:
+  my-db:

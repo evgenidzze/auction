@@ -7,7 +7,7 @@ from aiogram_media_group.storages.redis import RedisStorage
 from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler_di import ContextSchedulerDecorator
-from config import BOT_TOKEN
+from utils.config import BOT_TOKEN
 from handlers.middleware import Localization, MyBot
 
 

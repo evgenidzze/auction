@@ -5,13 +5,12 @@ from typing import List
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.deep_linking import get_start_link
-from sqlalchemy import select
 
 from create_bot import bot, scheduler
-from db_manage import get_lot, get_user, delete_lot_sql, update_lot_sql, Question, async_session, Lot, messages_count, \
+from db.db_manage import get_lot, get_user, delete_lot_sql, update_lot_sql, Question, messages_count, \
     Answer
 from keyboards.kb import decline_lot_btn, accept_lot_btn, main_kb
-from paypal import create_payment_token, get_status, capture
+from utils.paypal import create_payment_token, get_status, capture
 from create_bot import _
 
 

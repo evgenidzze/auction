@@ -3,8 +3,8 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from db_manage import get_user, update_user_sql
-from keyboards.kb import main_kb, cancel_kb
+from db.db_manage import get_user, update_user_sql
+from keyboards.kb import cancel_kb
 
 
 class FSMAdmin(StatesGroup):

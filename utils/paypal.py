@@ -1,6 +1,7 @@
 import requests
 
-from config import PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET
+from utils.config import PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET
+
 
 
 async def get_access_token():
