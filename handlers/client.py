@@ -576,7 +576,7 @@ async def accept_lot(call: types.CallbackQuery, state: FSMContext):
             await update_lot_sql(lot_id=new_lot_id, lot_link=msg.url, message_id=msg.message_id)
             scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, hours=lot.lot_time_living,
                               kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
-            # scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, seconds=60,
+            # scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, seconds=20,
             #                   kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
             channel = await bot.get_chat(chat_id=channel_id)
             await call.answer()

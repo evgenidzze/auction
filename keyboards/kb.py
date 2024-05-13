@@ -73,3 +73,8 @@ back_to_answers_kb = InlineKeyboardMarkup().add(delete_answer_btn).add(back_to_a
 back_to_questions = InlineKeyboardButton(text=_('« Назад'), callback_data='questions')
 delete_question_btn = InlineKeyboardButton(text='🗑 Видалити', callback_data='delete_question')
 back_to_questions_kb = InlineKeyboardMarkup().add(delete_question_btn).add(back_to_questions)
+
+black_list_btn = InlineKeyboardButton(text='🚫 Чорний список', callback_data='deny_user_access')
+payment_on_btn = InlineKeyboardButton(text='Увімкнути оплату', callback_data='on_payment')
+payment_of_btn = InlineKeyboardButton(text='Вимкнути оплату', callback_data='off_payment')
+back_to_admin = InlineKeyboardButton(text='❌Відміна', callback_data='admin')

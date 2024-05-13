@@ -12,4 +12,5 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET')
 PORT = os.environ.get('PORT')
+REDIS_HOST = os.environ.get('REDIS_HOST')
 WORKDIR = Path(__file__).parent.parent

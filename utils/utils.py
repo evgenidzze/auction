@@ -1,12 +1,11 @@
 import datetime
 import re
 from typing import List
-
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.deep_linking import get_start_link
 
-from create_bot import bot, scheduler
+from create_bot import bot, scheduler, job_stores
 from db.db_manage import get_lot, get_user, delete_lot_sql, update_lot_sql, Question, messages_count, \
     Answer
 from keyboards.kb import decline_lot_btn, accept_lot_btn, main_kb
@@ -19,9 +18,11 @@ async def lot_ending(job_id, msg_id: types.Message):
     scheduler.remove_job(job_id)
     if lot:
         owner_telegram_id = lot.owner_telegram_id
+        owner_tg = await bot.get_chat(owner_telegram_id)
         owner = await get_user(owner_telegram_id)
         bidder_telegram_id = lot.bidder_telegram_id
         bidder = await get_user(bidder_telegram_id)
+        winner_tg = await bot.get_chat(bidder_telegram_id)
         if bidder_telegram_id:
             await bot.send_message(chat_id=bidder_telegram_id,
                                    text=_('🏆 Вітаю! Ви перемогли у аукціоні <b>{desc}</b>\n'
@@ -31,11 +32,24 @@ async def lot_ending(job_id, msg_id: types.Message):
             token = await create_payment_token()
             await update_lot_sql(paypal_token=token, lot_id=job_id)
             kb = await payment_kb_generate(bidder_telegram_id, token, job_id, owner_locale=owner.language)
-            await bot.send_message(owner_telegram_id, text=_("🏆 Аукціон <b>{desc}</b> завершено!\n"
-                                                             "Щоб зв'язатись з переможцем, оплатіть комісію.",
-                                                             locale=owner.language)
-                                   .format(desc=lot.description[:25]),
-                                   reply_markup=kb, parse_mode='html')
+            redis_instance = job_stores.get('default')
+            payment_enabled = redis_instance.redis.get(name='payment')
+            if payment_enabled and payment_enabled.decode('utf-8') == 'on':
+                text = _("🏆 Аукціон <b>{desc}</b> завершено!\n"
+                         "Щоб зв'язатись з переможцем, оплатіть комісію.",
+                         locale=owner.language).format(desc=lot.description[:25])
+                await bot.send_message(owner_telegram_id, text=text, reply_markup=kb, parse_mode='html')
+
+            else:
+                from handlers.client import channel_id
+                text = _("🏆 Аукціон <b>{desc}</b> завершено!\n"
+                         "Можете зв'язатись з переможцем https://t.me/{username}.").format(username=winner_tg.username, desc=lot.description[:25])
+                await delete_lot_sql(lot_id=lot.id)
+                await bot.delete_message(chat_id=channel_id, message_id=lot.message_id)
+                await bot.send_message(owner_telegram_id, text=text, parse_mode='html')
+                text = _("Вітаю, <b>{first_name}!</b><a href='https://telegra.ph/file/5f63d10b734d545a032cc.jpg'>⠀</a>\n").format(first_name=owner_tg.username)
+                await bot.send_message(owner_telegram_id, text=text, parse_mode='html', reply_markup=main_kb)
+
         else:
             await bot.send_message(chat_id=owner_telegram_id,
                                    text=_('Ваш лот <b>{desc}...</b> завершився без ставок.',

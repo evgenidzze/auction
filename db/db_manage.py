@@ -162,7 +162,7 @@ async def get_last_bid(lot_id):
         return res.fetchone()[0]
 
 
-async def get_user(user_id):
+async def get_user(user_id) -> User:
     async with async_session() as session:
         stmt = select(User).where(User.telegram_id == user_id)
         res = await session.execute(stmt)

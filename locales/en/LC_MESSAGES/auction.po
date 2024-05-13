@@ -570,3 +570,10 @@ msgstr "💬 Answers"
 #: keyboards/kb.py:69
 msgid "🗑 Видалити"
 msgstr "🗑 Delete lot"
+
+msgid ""
+"🏆 Аукціон <b>{desc}</b> завершено!\n"
+"Можете зв'язатись з переможцем https://t.me/{username}."
+msgstr ""
+"<b>📦 Lot {desc}...</b>\n"
+"You can contact the winner https://t.me/{username}."
