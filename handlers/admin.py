@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from create_bot import job_stores
 from db.db_manage import get_user, update_user_sql
+from handlers.client import ADMINS
 from keyboards.kb import cancel_kb, payment_on_btn, payment_of_btn, black_list_btn, back_to_admin
 
 
@@ -14,22 +15,23 @@ class FSMAdmin(StatesGroup):
 
 
 async def admin(message):
-    redis_obj = job_stores.get('default')
-    result = redis_obj.redis.get('payment')
-    if (result and result.decode('utf-8') == 'off') or not result:
-        payment_btn = payment_on_btn
-        text = '🔴 Функція деактивована'
-    elif result and result.decode('utf-8') == 'on':
-        payment_btn = payment_of_btn
-        text = '🟢 Функція активна'
-    kb = InlineKeyboardMarkup().add(payment_btn, black_list_btn)
-    if isinstance(message, types.Message):
-        await message.answer(text=f'{text}\n\n👇 Оберіть варіант:', reply_markup=kb)
-    else:
-        try:
-            await message.message.edit_text(text=f'{text}\n\n👇 Оберіть варіант:', reply_markup=kb)
-        except:
-            pass
+    if message.from_user.id in ADMINS:
+        redis_obj = job_stores.get('default')
+        result = redis_obj.redis.get('payment')
+        if (result and result.decode('utf-8') == 'off') or not result:
+            payment_btn = payment_on_btn
+            text = '🔴 Функція деактивована'
+        elif result and result.decode('utf-8') == 'on':
+            payment_btn = payment_of_btn
+            text = '🟢 Функція активна'
+        kb = InlineKeyboardMarkup().add(payment_btn, black_list_btn)
+        if isinstance(message, types.Message):
+            await message.answer(text=f'{text}\n\n👇 Оберіть варіант:', reply_markup=kb)
+        else:
+            try:
+                await message.message.edit_text(text=f'{text}\n\n👇 Оберіть варіант:', reply_markup=kb)
+            except:
+                pass
 
 
 async def deny_user_access(call: types.CallbackQuery):
