@@ -7,7 +7,7 @@ from aiogram.dispatcher.filters import Text, MediaGroupFilter
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.deep_linking import decode_payload
-from aiogram_media_group import media_group_handler
+from utils.aiogram_media_group import media_group_handler
 from telegraph import Telegraph
 from create_bot import bot, scheduler, i18n, _, storage_group
 from db.db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
@@ -298,7 +298,6 @@ async def ask_media(call: [types.CallbackQuery, types.Message], state: FSMContex
 async def ready_lot(messages: List[types.Message], state: FSMContext):
     photos_id, videos_id = [], []
     html = ''
-    print(messages)
     for message in messages:
         if message.content_type == 'photo':
             photos_id.append(message.photo[-1].file_id)
@@ -323,6 +322,8 @@ async def ready_lot(messages: List[types.Message], state: FSMContext):
                                         'Надішліть ще раз ваші медіафайли:'), reply_markup=cancel_kb)
     else:
         fsm_data = await state.get_data()
+        if len(messages) <= 1:
+            fsm_data.pop('photos_link', None)
         kb = deepcopy(ready_to_publish_kb)
         kb.add(cancel_btn, publish_btn)
         if isinstance(messages[0], types.Message):
@@ -711,10 +712,9 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_message_handler(ask_price_steps, state=FSMClient.price)
     dp.register_message_handler(ask_lot_living, state=FSMClient.price_steps)
     dp.register_callback_query_handler(ask_media, state=FSMClient.lot_time_living)
-    dp.register_message_handler(ready_lot, MediaGroupFilter(is_media_group=False), state=FSMClient.media,
-                                content_types=types.ContentType.all())
-    dp.register_message_handler(ready_lot, MediaGroupFilter(is_media_group=True), state=FSMClient.media,
-                                content_types=types.ContentType.all())
+    dp.register_message_handler(ready_lot,  state=FSMClient.media, content_types=types.ContentType.all())
+    # dp.register_message_handler(ready_lot, MediaGroupFilter(is_media_group=True), state=FSMClient.media,
+    #                             content_types=types.ContentType.all())
     dp.register_callback_query_handler(ready_lot, Text(equals='back_to_ready'), state='*')
     dp.register_callback_query_handler(lot_publish, Text(equals='publish_lot'))
 
