@@ -95,7 +95,7 @@ async def lot_question(message: types.Message, state: FSMContext):
 
 
 async def main_menu(call, state: FSMContext):
-    clean_text = "Вітаю, <b>{first_name}!</b><a href='https://telegra.ph/file/5f63d10b734d545a032cc.jpg'>⠀</a>\n"
+    clean_text = "Вітаю, <b>{first_name}!</b><a href='https://telegra.ph/file/3f6168cc5f94f115331ac.png'>⠀</a>\n"
     text = _(clean_text).format(first_name=call.from_user.username)
     if isinstance(call, types.CallbackQuery):
         if call.data in ('en', 'uk'):
