@@ -467,19 +467,22 @@ msgid "🇺🇦 Українська"
 msgstr ""
 
 #: keyboards/kb.py:8
-msgid "🗃 Мої лоти      ⠀⠀⠀⠀"
+msgid "🗃 Мої лоти      ⠀⠀⠀⠀⠀⠀⠀"
 msgstr "🗃 My lots      ⠀⠀"
 
 #: keyboards/kb.py:10
-msgid "🆘 Допомога ⠀   ⠀⠀⠀"
+msgid "🆘 Допомога ⠀   ⠀⠀⠀⠀⠀⠀"
 msgstr "🆘 Help   ⠀⠀⠀⠀⠀"
 
 #: keyboards/kb.py:11
-msgid "🏷 Створити лот     ⠀"
+msgid "🏷 Створити лот     ⠀⠀⠀⠀"
 msgstr "🏷 Create lot    ⠀"
 
+msgid "📣 Створити оголошення"
+msgstr "📣 Create ad⠀⠀"
+
 #: keyboards/kb.py:12
-msgid "⏱ Антиснайпер      ⠀"
+msgid "⏱ Антиснайпер      ⠀⠀⠀⠀"
 msgstr "⏱ Antisniper    ⠀"
 
 #: keyboards/kb.py:13

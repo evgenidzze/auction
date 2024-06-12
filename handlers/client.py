@@ -12,17 +12,19 @@ from telegraph import Telegraph
 from create_bot import bot, scheduler, i18n, _, storage_group
 from db.db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
     get_user, update_user_sql, update_lot_sql, create_question, get_question, \
-    create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User
+    create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User, create_adv, get_adv, \
+    update_adv_sql
 from handlers.middleware import HiddenUser
 from keyboards.kb import language_kb, main_kb, cancel_kb, lot_time_kb, \
     create_auction, back_to_main_btn, cancel_btn, delete_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
     decline_lot_deletion_btn, accept_lot_deletion_btn, anti_kb, ready_to_publish_kb, publish_btn, quest_answ_kb, \
-    back_to_messages, back_to_questions_kb, back_to_answers_kb, back_to_answers_btn, back_to_questions
+    back_to_messages, back_to_questions_kb, back_to_answers_kb, back_to_answers_btn, back_to_questions, \
+    ready_to_publish_ad_kb, publish_adv_btn, back_to_ready_ad_kb
+from utils.config import AUCTION_CHANNEL, ADVERT_CHANNEL
 from utils.utils import lot_ending, create_user_lots_kb, send_post, payment_approved, payment_kb_generate, \
     new_bid_caption, send_post_fsm, create_photo_album, create_question_kb, create_answers_kb, username_in_text, \
-    phone_in_text
+    phone_in_text, create_telegraph_link, send_advert, save_sent_media, adv_ending
 
-channel_id = '-1002061444176'
 ADMINS = [397875584, 432530900]
 
 
@@ -30,6 +32,10 @@ ADMINS = [397875584, 432530900]
 
 
 class FSMClient(StatesGroup):
+    change_media_ad = State()
+    city_ad = State()
+    media_ad = State()
+    description_ad = State()
     delete_answer = State()
     choose_answer = State()
     send_answer = State()
@@ -297,29 +303,15 @@ async def ask_media(call: [types.CallbackQuery, types.Message], state: FSMContex
 @media_group_handler(storage_driver=storage_group)
 async def ready_lot(messages: List[types.Message], state: FSMContext):
     photos_id, videos_id = [], []
-    html = ''
-    for message in messages:
-        if message.content_type == 'photo':
-            photos_id.append(message.photo[-1].file_id)
-            html += f"<img src='{await message.photo[-1].get_url()}'/><br>"
-            await state.update_data(photo_id=message.photo[0].file_id)
-        elif message.content_type == 'video':
-            videos_id.append(message.video.file_id)
-            await state.update_data(video_id=message.video.file_id)
-        else:
-            await message.answer(text=_('❌ Надішліть фото або відео.'), parse_mode='html')
-            await ask_media(message, state)
-            return
-
+    html = await save_sent_media(messages, photos_id, videos_id, state)
     if html and len(photos_id) > 1:
-        telegraph = Telegraph()
-        telegraph.create_account(short_name='Shopogolic')
-        photos_link = await create_photo_album(tg=telegraph, html=html)
-        await state.update_data(photos_link=photos_link)
+        await create_telegraph_link(state, html)
 
     if len(photos_id) > 5 or len(videos_id) > 1:
-        await messages[0].answer(text=_('❌ Максимум 5 фото і 1 відео.\n'
-                                        'Надішліть ще раз ваші медіафайли:'), reply_markup=cancel_kb)
+        await bot.send_message(chat_id=messages[0].from_user.id, text=_('❌ Максимум 5 фото і 1 відео.\n'
+                                                                        'Надішліть ще раз ваші медіафайли:'),
+                               reply_markup=cancel_kb)
+        return
     else:
         fsm_data = await state.get_data()
         if len(messages) <= 1:
@@ -331,14 +323,16 @@ async def ready_lot(messages: List[types.Message], state: FSMContext):
             await msg.reply(text=_('⬆️ Лот готовий до публікації!\n'
                                    'Перевірте всю інформацію і натисніть <b>✅ Опублікувати</b>, коли будете готові.'),
                             reply_markup=kb, parse_mode='html')
-        elif isinstance(messages, types.CallbackQuery):
+        elif isinstance(messages[0], types.CallbackQuery):
             text = _('Лот готовий!\nОпублікувати?')
-
-            if messages.data != 'back_to_ready' and await state.get_state() and 'steps' not in await state.get_state():
-                await send_post_fsm(fsm_data, messages.from_user.id)
-                await messages.message.reply_to_message.reply(text=text, reply_markup=kb)
+            if (messages[0].data != 'back_to_ready' and await state.get_state() and
+                    'steps' not in await state.get_state()):
+                await send_post_fsm(fsm_data, messages[0].from_user.id)
+                await messages[0].message.reply_to_message.reply(text=text, reply_markup=kb)
             else:
-                await messages.message.edit_text(text=text, reply_markup=kb)
+                await messages[0].message.edit_text(text=_('⬆️ Лот готовий до публікації!\n'
+                                                           'Перевірте всю інформацію і натисніть <b>✅ Опублікувати</b>, коли будете готові.'),
+                                                    reply_markup=kb, parse_mode='html')
     await state.reset_state(with_data=False)
 
 
@@ -353,13 +347,34 @@ async def lot_publish(message: types.CallbackQuery, state: FSMContext):
     price_steps: str = fsm_data.get('price_steps')
     photos_link: str = fsm_data.get('photos_link')
     new_lot_id = await create_lot(fsm_data, message.from_user.id)
-    channel = await bot.get_chat(channel_id)
+    channel = await bot.get_chat(AUCTION_CHANNEL)
     for admin_id in ADMINS:
         await send_post(message.from_user.id, admin_id, photo_id, video_id, description, start_price,
                         price_steps, currency=currency, city=city, lot_id=new_lot_id, moder_review=True,
                         photos_link=photos_link)
     await message.message.edit_text(
         text=_("✅ Лот відправлено не модерацію, незабаром він з'явиться у каналі <b><a href='{invite_link}'>"
+               "{username}</a></b>.").format(invite_link=channel.invite_link, username=channel.username),
+        parse_mode='html', reply_markup=main_kb)
+
+
+async def adv_publish(message, state):
+    fsm_data = await state.get_data()
+    video_id = fsm_data.get('video_id')
+    photo_id = fsm_data.get('photo_id')
+    description = fsm_data.get('description')
+    city: str = fsm_data.get('city')
+    photos_link: str = fsm_data.get('photos_link')
+    new_adv_id = await create_adv(message.from_user.id, fsm_data)
+    channel = await bot.get_chat(ADVERT_CHANNEL)
+    for admin_id in ADMINS:
+        await send_advert(user_id=message.from_user.id, send_to_id=admin_id, description=description, city=city,
+                          photos_link=photos_link, video_id=video_id, photo_id=photo_id,
+                          moder_review=True,
+                          change_lot_view=None,
+                          advert_id=new_adv_id)
+    await message.message.edit_text(
+        text=_("✅ Оголошення відправлено не модерацію, незабаром воно з'явиться у каналі <b><a href='{invite_link}'>"
                "{username}</a></b>.").format(invite_link=channel.invite_link, username=channel.username),
         parse_mode='html', reply_markup=main_kb)
 
@@ -395,7 +410,7 @@ async def make_bid(message: types.CallbackQuery):
             caption = await new_bid_caption(lot_post, message.from_user.first_name, price, currency,
                                             owner_locale=user.language, bid_count=bid_count + 1,
                                             photos_link=lot.photos_link)
-            await bot.edit_message_caption(chat_id=channel_id, message_id=lot_post.message_id, caption=caption,
+            await bot.edit_message_caption(chat_id=AUCTION_CHANNEL, message_id=lot_post.message_id, caption=caption,
                                            reply_markup=lot_post.reply_markup, parse_mode='html')
             await bot.send_message(chat_id=owner_id,
                                    text=_(
@@ -436,18 +451,29 @@ async def show_lot(message: types.CallbackQuery, state: FSMContext):
 
 
 async def change_media(call: types.CallbackQuery, state: FSMContext):
-    await FSMClient.change_media.set()
+    data = await state.get_data()
+    if data.get('is_ad'):
+        await FSMClient.change_media_ad.set()
+        kb = back_to_ready_ad_kb
+    else:
+        await FSMClient.change_media.set()
+        kb = back_to_ready_kb
     await call.message.edit_text(text=_('📸 Надішліть фото і відео:\n'
-                                        '<i>До 5 фото та до 1 відео</i>'), reply_markup=back_to_ready_kb,
+                                        '<i>До 5 фото та до 1 відео</i>'), reply_markup=kb,
                                  parse_mode='html')
 
 
 async def change_desc(call: types.CallbackQuery, state: FSMContext):
     await FSMClient.change_desc.set()
+    data = await state.get_data()
+    if data.get('is_ad'):
+        kb = back_to_ready_ad_kb
+    else:
+        kb = back_to_ready_kb
     await call.message.edit_text(text=_('📝 Напишіть опис для лоту:\n\n'
                                         '<i>Наприклад: Навушники Marshall Major IV Bluetooth Black</i>'),
                                  parse_mode='html',
-                                 reply_markup=back_to_ready_kb)
+                                 reply_markup=kb)
 
 
 async def change_start_price(call: types.CallbackQuery, state: FSMContext):
@@ -473,14 +499,23 @@ async def change_price_steps(call: types.CallbackQuery):
                                         'Наприклад: 500 1000 1500'), reply_markup=back_to_ready_kb)
 
 
-async def change_city(call: types.CallbackQuery):
+async def change_city(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     await FSMClient.change_city.set()
-    await call.message.edit_text(text=_('Надішліть нову назву міста:'), reply_markup=back_to_ready_kb)
+    if data.get('is_ad'):
+        kb = back_to_ready_ad_kb
+    else:
+        kb = back_to_ready_kb
+    await call.message.edit_text(text=_('Надішліть нову назву міста:'), reply_markup=kb)
 
 
 async def set_desc(message: types.Message, state: FSMContext):
     await state.update_data(description=message.text)
-    await ready_lot(message, state)
+    data = await state.get_data()
+    if data.get('is_ad'):
+        await save_media_ad(message, state)
+    else:
+        await ready_lot(message, state)
 
 
 async def set_start_price(message: types.Message, state: FSMContext):
@@ -509,7 +544,11 @@ async def set_price_steps(message: types.Message, state: FSMContext):
 
 async def set_new_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text)
-    await ready_lot(message, state)
+    data = await state.get_data()
+    if data.get('is_ad'):
+        await save_media_ad(message, state)
+    else:
+        await ready_lot(message, state)
 
 
 async def delete_lot(call: types.CallbackQuery, state: FSMContext):
@@ -557,7 +596,7 @@ async def time_left_popup(call: types.CallbackQuery):
 
 async def accept_lot(call: types.CallbackQuery, state: FSMContext):
     accept = call.data.split('_')
-    new_lot_id = accept[1]
+    new_lot_id = accept[-1]
     lot = await get_lot(new_lot_id)
     if lot:
         video_id = lot.video_id
@@ -571,7 +610,7 @@ async def accept_lot(call: types.CallbackQuery, state: FSMContext):
         photos_link = lot.photos_link
 
         if not scheduler.get_job(new_lot_id):
-            msg = await send_post(owner_id, channel_id, photo_id, video_id, description, start_price,
+            msg = await send_post(owner_id, AUCTION_CHANNEL, photo_id, video_id, description, start_price,
                                   price_steps, currency=currency, city=city, lot_id=new_lot_id, moder_review=None,
                                   photos_link=photos_link)
             await update_lot_sql(lot_id=new_lot_id, lot_link=msg.url, message_id=msg.message_id)
@@ -579,7 +618,7 @@ async def accept_lot(call: types.CallbackQuery, state: FSMContext):
                               kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
             # scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, seconds=20,
             #                   kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
-            channel = await bot.get_chat(chat_id=channel_id)
+            channel = await bot.get_chat(chat_id=AUCTION_CHANNEL)
             await call.answer()
             text = _("✅ Готово!\n"
                      "Лот <b><a href='{msg_url}'>{desc}...</a></b> "
@@ -596,10 +635,48 @@ async def accept_lot(call: types.CallbackQuery, state: FSMContext):
         await call.answer(text=_('Лот вже відхилено.'))
 
 
+async def accept_adv(call: types.CallbackQuery):
+    accept = call.data.split('_')
+    new_adv_id = accept[-1]
+    adv = await get_adv(new_adv_id)
+    if adv:
+        video_id = adv.video_id
+        photo_id = adv.photo_id
+        description = adv.description
+        city = adv.city
+        owner_id = adv.owner_telegram_id
+        photos_link = adv.photos_link
+
+        if not scheduler.get_job(new_adv_id):
+            msg = await send_advert(user_id=owner_id, send_to_id=ADVERT_CHANNEL, photo_id=photo_id, video_id=video_id,
+                                    description=description, city=city, advert_id=new_adv_id, moder_review=None,
+                                    photos_link=photos_link)
+            await update_adv_sql(adv_id=new_adv_id, post_link=msg.url, message_id=msg.message_id)
+            # scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, hours=168,
+            #                   kwargs={'job_id': new_adv_id, 'msg_id': msg.message_id})
+            scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, seconds=20,
+                              kwargs={'job_id': new_adv_id, 'msg_id': msg.message_id})
+            channel = await bot.get_chat(chat_id=ADVERT_CHANNEL)
+            await call.answer()
+            text = _("✅ Готово!\n"
+                     "Оголошення <b><a href='{msg_url}'>{desc}...</a></b> "
+                     "опубліковано в каналі <b><a href='{channel_link}'>"
+                     "{channel_name}</a></b>").format(msg_url=msg.url,
+                                                      desc=description[:15],
+                                                      channel_link=channel.invite_link,
+                                                      channel_name=channel.username)
+            await call.message.edit_caption(caption=text, parse_mode='html', reply_markup=main_kb)
+            await bot.send_message(chat_id=owner_id, text=text, parse_mode='html', reply_markup=main_kb)
+        else:
+            await call.answer(text=_('Оголошення вже опубліковано.'))
+    else:
+        await call.answer(text=_('Оголошення вже відхилено.'))
+
+
 async def decline_lot(call: types.CallbackQuery):
     await call.answer()
     decline = call.data.split('_')
-    new_lot_id = decline[1]
+    new_lot_id = decline[-1]
     lot = await get_lot(new_lot_id)
     if lot:
         if scheduler.get_job(new_lot_id):
@@ -628,7 +705,7 @@ async def lot_deletion(call: types.CallbackQuery):
             await call.message.edit_text(_('✅ Лот видалено.'), reply_markup=main_kb)
             await delete_lot_sql(lot_id)
             scheduler.remove_job(lot_id)
-            await bot.delete_message(chat_id=channel_id, message_id=lot.message_id)
+            await bot.delete_message(chat_id=AUCTION_CHANNEL, message_id=lot.message_id)
         elif action == 'decline':
             text = _('❌ Ваш лот <b>{desc}...</b> не видалено.\n'
                      f'Запит відхилено.').format(desc=lot.description[:15])
@@ -689,6 +766,72 @@ async def get_contact(call: types.CallbackQuery):
             reply_markup=kb, parse_mode='html')
 
 
+async def ask_description_ad(call: types.CallbackQuery, state: FSMContext):
+    # перевірити чи є підписка
+    await call.message.edit_text(text=_('📝 Напишіть опис для оголошення:'), reply_markup=cancel_kb)
+    await FSMClient.description_ad.set()
+
+
+async def ask_city_ad(message: types.Message, state: FSMContext):
+    if isinstance(message, types.Message):
+        await state.update_data(description=message.text)
+        await FSMClient.city_ad.set()
+        await message.answer(text=_('🌆 Вкажіть ваше місто:'),
+                             parse_mode='html',
+                             reply_markup=cancel_kb)
+
+
+async def ask_media_ad(message: types.Message, state: FSMContext):
+    text = _('📸 Надішліть фото і відео:\n'
+             '<i>До 5 фото та до 1 відео</i>')
+    if isinstance(message, types.CallbackQuery):
+        await message.message.edit_text(text=text, reply_markup=cancel_kb, parse_mode='html')
+    else:
+        await state.update_data(city=message.text)
+        await message.answer(text=text, reply_markup=cancel_kb, parse_mode='html')
+
+    await FSMClient.media_ad.set()
+
+
+@media_group_handler(storage_driver=storage_group)
+async def save_media_ad(messages: List[types.Message], state: FSMContext):
+    await state.update_data(is_ad=True)
+    photos_id, videos_id = [], []
+    html = await save_sent_media(messages, photos_id, videos_id, state)
+
+    if html and len(photos_id) > 1:
+        await create_telegraph_link(state, html)
+    elif html is False:
+        return
+
+    if len(photos_id) > 5 or len(videos_id) > 1:
+        await messages[0].answer(text=_('❌ Максимум 5 фото і 1 відео.\n'
+                                        'Надішліть ще раз ваші медіафайли:'), reply_markup=cancel_kb)
+        return
+    else:
+        fsm_data = await state.get_data()
+        if len(messages) <= 1:
+            fsm_data.pop('photos_link', None)
+        kb = deepcopy(ready_to_publish_ad_kb)
+        kb.add(cancel_btn, publish_adv_btn)
+        if isinstance(messages[0], types.Message):
+            msg = await send_post_fsm(fsm_data, messages[0].from_user.id, is_ad=True)
+            await msg.reply(text=_('⬆️ Оголошення готове до публікації!\n'
+                                   'Перевірте всю інформацію і натисніть <b>✅ Опублікувати</b>, коли будете готові.'),
+                            reply_markup=kb, parse_mode='html')
+        elif isinstance(messages[0], types.CallbackQuery):
+            text = _('Оголошення готове!\nОпублікувати?')
+            if messages[
+                0].data != 'back_to_ready_ad' and await state.get_state() and 'steps' not in await state.get_state():
+                await send_post_fsm(fsm_data, messages[0].from_user.id, is_ad=True)
+                await messages[0].message.reply_to_message.reply(text=text, reply_markup=kb)
+            else:
+                await messages[0].message.edit_text(text=_('⬆️ Оголошення готове до публікації!\n'
+                                                           'Перевірте всю інформацію і натисніть <b>✅ Опублікувати</b>, коли будете готові.'),
+                                                    reply_markup=kb, parse_mode='html')
+    await state.reset_state(with_data=False)
+
+
 def register_client_handlers(dp: Dispatcher):
     dp.middleware.setup(HiddenUser())
     dp.middleware.setup(i18n)
@@ -706,17 +849,23 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(del_read_answer, state=FSMClient.delete_answer)
     dp.register_callback_query_handler(answers_list, Text(equals='answers'), state='*')
     dp.register_callback_query_handler(ask_city, Text(equals='create_auction'), state='*')
+    dp.register_callback_query_handler(ask_description_ad, Text(equals='create_ad'), state='*')
+    dp.register_message_handler(ask_city_ad, state=FSMClient.description_ad)
+    dp.register_message_handler(ask_media_ad, state=FSMClient.city_ad)
+    dp.register_message_handler(save_media_ad, state=FSMClient.media_ad, content_types=types.ContentType.all())
     dp.register_message_handler(ask_currency, state=FSMClient.city)
     dp.register_callback_query_handler(ask_description, state=FSMClient.currency)
     dp.register_message_handler(ask_price, state=FSMClient.description)
     dp.register_message_handler(ask_price_steps, state=FSMClient.price)
     dp.register_message_handler(ask_lot_living, state=FSMClient.price_steps)
     dp.register_callback_query_handler(ask_media, state=FSMClient.lot_time_living)
-    dp.register_message_handler(ready_lot,  state=FSMClient.media, content_types=types.ContentType.all())
+    dp.register_message_handler(ready_lot, state=FSMClient.media, content_types=types.ContentType.all())
     # dp.register_message_handler(ready_lot, MediaGroupFilter(is_media_group=True), state=FSMClient.media,
     #                             content_types=types.ContentType.all())
     dp.register_callback_query_handler(ready_lot, Text(equals='back_to_ready'), state='*')
+    dp.register_callback_query_handler(save_media_ad, Text(equals='back_to_ready_ad'), state='*')
     dp.register_callback_query_handler(lot_publish, Text(equals='publish_lot'))
+    dp.register_callback_query_handler(adv_publish, Text(equals='publish_adv'))
 
     dp.register_callback_query_handler(make_bid, Text(startswith='bid'))
     dp.register_callback_query_handler(show_lot, state=FSMClient.change_lot)
@@ -729,6 +878,7 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(change_city, Text(equals='change_city'))
 
     dp.register_message_handler(ready_lot, state=FSMClient.change_media, content_types=types.ContentType.all())
+    dp.register_message_handler(save_media_ad, state=FSMClient.change_media_ad, content_types=types.ContentType.all())
     dp.register_message_handler(set_desc, state=FSMClient.change_desc)
     dp.register_message_handler(set_start_price, state=FSMClient.change_start_price)
     dp.register_callback_query_handler(set_lot_time, state=FSMClient.change_lot_time)
@@ -739,8 +889,11 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(time_left_popup, Text(startswith='time_left'))
 
     dp.register_callback_query_handler(lot_deletion, Text(startswith='lot_deletion_'), state='*')
-    dp.register_callback_query_handler(accept_lot, Text(startswith='accept'), state='*')
-    dp.register_callback_query_handler(decline_lot, Text(startswith='decline'), state='*')
+    dp.register_callback_query_handler(accept_lot, Text(startswith='accept_lot'), state='*')
+    dp.register_callback_query_handler(decline_lot, Text(startswith='decline_lot'), state='*')
+
+    dp.register_callback_query_handler(accept_adv, Text(startswith='accept_adv'), state='*')
+    # dp.register_callback_query_handler(decline_adv, Text(startswith='decline_lot'), state='*')
 
     dp.register_callback_query_handler(help_, Text(equals='help'))
 

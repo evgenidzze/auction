@@ -75,6 +75,20 @@ class Lot(Base):
     bid_count: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
 
 
+class Advertisement(Base):
+    __tablename__ = 'Advertisement'
+    id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True)
+    owner_telegram_id: Mapped[str] = mapped_column(ForeignKey('User.telegram_id'), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    photo_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    video_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    message_id: Mapped[str] = mapped_column(String(45), nullable=True)
+    city: Mapped[str] = mapped_column(String(45), nullable=True)
+    photos_link: Mapped[str] = mapped_column(String(255), nullable=True)
+    post_link: Mapped[str] = mapped_column(String(255), nullable=True)
+
+
 async def add_new_user(telegram_id, language):
     async with async_session() as session:
         new_user = User
@@ -102,6 +116,13 @@ async def update_lot_sql(lot_id, **kwargs):
         await session.commit()
 
 
+async def update_adv_sql(adv_id, **kwargs):
+    async with async_session() as session:
+        stmt = update(Advertisement).where(Advertisement.id == adv_id).values(kwargs)
+        await session.execute(stmt)
+        await session.commit()
+
+
 async def create_lot(fsm_data, owner_id):
     async with async_session() as session:
         new_lot = Lot(
@@ -124,9 +145,34 @@ async def create_lot(fsm_data, owner_id):
         return str(new_lot.id)
 
 
+async def create_adv(owner_id, fsm_data):
+    async with async_session() as session:
+        new_adv = Advertisement(
+            owner_telegram_id=owner_id,
+            description=fsm_data.get('description'),
+            photo_id=fsm_data.get('photo_id'),
+            video_id=fsm_data.get('video_id'),
+            city=fsm_data.get('city'),
+            photos_link=fsm_data.get('photos_link')
+        )
+        session.add(new_adv)
+        await session.commit()
+        await session.refresh(new_adv)
+        return str(new_adv.id)
+
+
 async def get_lot(lot_id):
     async with async_session() as session:
         stmt = select(Lot).where(Lot.id == lot_id)
+        execute = await session.execute(stmt)
+        res = execute.fetchone()
+        if res:
+            return res[0]
+
+
+async def get_adv(adv_id):
+    async with async_session() as session:
+        stmt = select(Advertisement).where(Advertisement.id == adv_id)
         execute = await session.execute(stmt)
         res = execute.fetchone()
         if res:
@@ -143,6 +189,13 @@ async def get_user_lots(user_id):
 async def delete_lot_sql(lot_id):
     async with async_session() as session:
         stmt = delete(Lot).where(Lot.id == lot_id)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def delete_adv_sql(adv_id):
+    async with async_session() as session:
+        stmt = delete(Advertisement).where(Advertisement.id == adv_id)
         await session.execute(stmt)
         await session.commit()
 

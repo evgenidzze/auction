@@ -5,13 +5,15 @@ eng_btn = InlineKeyboardButton(text=_('🇬🇧 English'), callback_data='en')
 ua_btn = InlineKeyboardButton(text=_('🇺🇦 Українська'), callback_data='uk')
 language_kb = InlineKeyboardMarkup(row_width=1).add(ua_btn, eng_btn)
 
-my_auctions_btn = InlineKeyboardButton(_('🗃 Мої лоти      ⠀⠀⠀⠀'), callback_data='my_auctions')
+my_auctions_btn = InlineKeyboardButton(_('🗃 Мої лоти      ⠀⠀⠀⠀⠀⠀⠀'), callback_data='my_auctions')
 # settings_btn = InlineKeyboardButton('⚙️ Налаштування', callback_data='settings')
-help_btn = InlineKeyboardButton(_('🆘 Допомога ⠀   ⠀⠀⠀'), callback_data='help')
-create_auction = InlineKeyboardButton(_('🏷 Створити лот     ⠀'), callback_data='create_auction')
-anti_sniper_btn = InlineKeyboardButton(_('⏱ Антиснайпер      ⠀'), callback_data='anti_sniper')
+help_btn = InlineKeyboardButton(_('🆘 Допомога ⠀   ⠀⠀⠀⠀⠀⠀'), callback_data='help')
+create_auction = InlineKeyboardButton(_('🏷 Створити лот     ⠀⠀⠀⠀'), callback_data='create_auction')
+anti_sniper_btn = InlineKeyboardButton(_('⏱ Антиснайпер      ⠀⠀⠀⠀'), callback_data='anti_sniper')
 chats_btn = InlineKeyboardButton(_('💬 Повідомлення'), callback_data='chats')
-main_kb = InlineKeyboardMarkup(row_width=1).add(create_auction, my_auctions_btn, anti_sniper_btn, chats_btn, help_btn)
+advert_btn = InlineKeyboardButton(_('📣 Створити оголошення'), callback_data='create_ad')
+main_kb = InlineKeyboardMarkup(row_width=1).add(create_auction,advert_btn, my_auctions_btn, anti_sniper_btn, chats_btn,
+                                                help_btn)
 
 back_to_main_btn = InlineKeyboardButton(_('« Назад'), callback_data='main_menu')
 back_to_messages = InlineKeyboardButton(_('« Назад'), callback_data='chats')
@@ -29,11 +31,12 @@ change_description_btn = InlineKeyboardButton(text=_('🔤 Змінити опи
 change_start_price_btn = InlineKeyboardButton(text=_('💰 Змінити стартову ціну ⠀'), callback_data='change_start_price')
 change_duration_btn = InlineKeyboardButton(text=_('⏳ Змінити тривалість лоту'), callback_data='change_lot_time')
 change_steps_btn = InlineKeyboardButton(text=_('🪙 Змінити кроки ставки  ⠀'), callback_data='change_price_steps')
-change_city_btn = InlineKeyboardButton(text=_('🏙 Змінити місто                 ⠀'), callback_data='change_city')
+change_city_btn = InlineKeyboardButton(text=_('🏙 Змінити місто                ⠀'), callback_data='change_city')
 publish_btn = InlineKeyboardButton(text=_('✅ Опублікувати'), callback_data='publish_lot')
+publish_adv_btn = InlineKeyboardButton(text=_('✅ Опублікувати'), callback_data='publish_adv')
 ready_to_publish_kb = InlineKeyboardMarkup().add(change_media_btn).add(change_description_btn).add(
     change_start_price_btn).add(change_duration_btn).add(change_steps_btn).add(change_city_btn)
-
+ready_to_publish_ad_kb = InlineKeyboardMarkup().add(change_media_btn).add(change_description_btn).add(change_city_btn)
 delete_lot_btn = InlineKeyboardButton(text=_('🗑 Видалити лот'), callback_data='delete_lot')
 delete_kb = InlineKeyboardMarkup().add(delete_lot_btn).add(
     InlineKeyboardButton(text=_('« Назад'), callback_data='my_auctions'))
@@ -41,6 +44,10 @@ delete_kb = InlineKeyboardMarkup().add(delete_lot_btn).add(
 
 back_to_ready_btn = InlineKeyboardButton(text=_('« Назад'), callback_data='back_to_ready')
 back_to_ready_kb = InlineKeyboardMarkup().add(back_to_ready_btn)
+
+back_to_ready_ad_btn = InlineKeyboardButton(text=_('« Назад'), callback_data='back_to_ready_ad')
+back_to_ready_ad_kb = InlineKeyboardMarkup().add(back_to_ready_ad_btn)
+
 
 gbr_btn = InlineKeyboardButton(text='🇬🇧 GBR', callback_data='GBR')
 uah_btn = InlineKeyboardButton(text='🇺🇦 UAH', callback_data='UAH')
