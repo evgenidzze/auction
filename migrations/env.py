@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -7,6 +8,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+sys.path = ['', '..'] + sys.path[1:]
+from db.db_manage import Base
 from utils.config import DB_NAME, DB_HOST, DB_PASS, DB_USER
 
 # this is the Alembic Config object, which provides
@@ -24,6 +27,7 @@ config.set_main_option('sqlalchemy.url', f"mysql+aiomysql://{DB_USER}:{DB_PASS}@
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = None
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
