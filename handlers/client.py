@@ -1,37 +1,37 @@
 import datetime
+import time
 from copy import deepcopy
 from typing import List
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters import Text, MediaGroupFilter
+from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.deep_linking import decode_payload
 from utils.aiogram_media_group import media_group_handler
-from telegraph import Telegraph
 from create_bot import bot, scheduler, i18n, _, storage_group
 from db.db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
     get_user, update_user_sql, update_lot_sql, create_question, get_question, \
     create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User, create_adv, get_adv, \
-    update_adv_sql
+    update_adv_sql, delete_adv_sql
 from handlers.middleware import HiddenUser
 from keyboards.kb import language_kb, main_kb, cancel_kb, lot_time_kb, \
     create_auction, back_to_main_btn, cancel_btn, delete_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
     decline_lot_deletion_btn, accept_lot_deletion_btn, anti_kb, ready_to_publish_kb, publish_btn, quest_answ_kb, \
     back_to_messages, back_to_questions_kb, back_to_answers_kb, back_to_answers_btn, back_to_questions, \
-    ready_to_publish_ad_kb, publish_adv_btn, back_to_ready_ad_kb
+    ready_to_publish_ad_kb, publish_adv_btn, back_to_ready_ad_kb, subscribe_adv_kb
 from utils.config import AUCTION_CHANNEL, ADVERT_CHANNEL
-from utils.utils import lot_ending, create_user_lots_kb, send_post, payment_approved, payment_kb_generate, \
-    new_bid_caption, send_post_fsm, create_photo_album, create_question_kb, create_answers_kb, username_in_text, \
-    phone_in_text, create_telegraph_link, send_advert, save_sent_media, adv_ending
+from utils.paypal import create_payment_token, get_status
+from utils.utils import lot_ending, create_user_lots_kb, send_post, payment_approved, contact_payment_kb_generate, \
+    new_bid_caption, send_post_fsm, create_question_kb, create_answers_kb, username_in_text, \
+    phone_in_text, create_telegraph_link, send_advert, save_sent_media, adv_ending, adv_sub_time_remain, \
+    user_have_approved_adv_token, payment_kb_adv
 
 ADMINS = [397875584, 432530900]
 
 
-# ADMINS = [397875584]
-
-
 class FSMClient(StatesGroup):
+    adv_sub_seconds = State()
     change_media_ad = State()
     city_ad = State()
     media_ad = State()
@@ -674,7 +674,6 @@ async def accept_adv(call: types.CallbackQuery):
 
 
 async def decline_lot(call: types.CallbackQuery):
-    await call.answer()
     decline = call.data.split('_')
     new_lot_id = decline[-1]
     lot = await get_lot(new_lot_id)
@@ -682,6 +681,7 @@ async def decline_lot(call: types.CallbackQuery):
         if scheduler.get_job(new_lot_id):
             await call.answer(text=_('Лот вже опубліковано.'))
         else:
+            await call.answer()
             owner_id = lot.owner_telegram_id
             await delete_lot_sql(new_lot_id)
             await call.message.answer(text='✅ Лот успішно відхилено')
@@ -691,6 +691,26 @@ async def decline_lot(call: types.CallbackQuery):
                                    parse_mode='html', reply_markup=main_kb)
     else:
         await call.answer(text=_('Лот вже відхилено.'))
+
+
+async def decline_adv(call: types.CallbackQuery):
+    decline = call.data.split('_')
+    new_adv_id = decline[-1]
+    adv = await get_adv(new_adv_id)
+    if adv:
+        if scheduler.get_job(new_adv_id):
+            await call.answer(text=_('Оголошення вже опубліковано.'))
+        else:
+            await call.answer()
+            owner_id = adv.owner_telegram_id
+            await delete_adv_sql(new_adv_id)
+            await call.message.answer(text='✅ Оголошення успішно відхилено')
+            await bot.send_message(chat_id=owner_id,
+                                   text=_("❗️Нажаль ваше оголошення <b>{desc}...</b> не пройшло модерацію.").format(
+                                       desc=adv.description[:15]),
+                                   parse_mode='html', reply_markup=main_kb)
+    else:
+        await call.answer(text=_('Оголошення вже відхилено.'))
 
 
 async def lot_deletion(call: types.CallbackQuery):
@@ -758,7 +778,7 @@ async def get_contact(call: types.CallbackQuery):
         await delete_lot_sql(lot_id=lot.id)
 
     else:
-        kb = await payment_kb_generate(bidder_id, token, lot_id, owner_locale=owner.language)
+        kb = await contact_payment_kb_generate(bidder_id, token, lot_id, owner_locale=owner.language)
         await call.message.answer(text=_('<b>📦 Лот {desc}...</b>\n'
                                          '❌ Оплату не зафіксовано.\n'
                                          "Щоб зв'язатись з переможцем, оплатіть комісію і натисніть <b>Отримати контакт</b>.").format(
@@ -767,9 +787,17 @@ async def get_contact(call: types.CallbackQuery):
 
 
 async def ask_description_ad(call: types.CallbackQuery, state: FSMContext):
-    # перевірити чи є підписка
-    await call.message.edit_text(text=_('📝 Напишіть опис для оголошення:'), reply_markup=cancel_kb)
-    await FSMClient.description_ad.set()
+    is_subscribed = await adv_sub_time_remain(call.from_user.id)
+    have_approved_token = await user_have_approved_adv_token(call.from_user.id)
+    if is_subscribed or have_approved_token:
+        if have_approved_token and not is_subscribed:
+            await update_user_sql(call.from_user.id, advert_subscribe_time=604800 + time.time())
+        await call.message.edit_text(text=_('📝 Напишіть опис для оголошення:'), reply_markup=cancel_kb)
+        await FSMClient.description_ad.set()
+    else:
+        await call.message.edit_text(text=_('ℹ️ Щоб виставити оголошення, потрібно оформити підписку.'),
+                                     reply_markup=subscribe_adv_kb)
+        await FSMClient.adv_sub_seconds.set()
 
 
 async def ask_city_ad(message: types.Message, state: FSMContext):
@@ -832,6 +860,43 @@ async def save_media_ad(messages: List[types.Message], state: FSMContext):
     await state.reset_state(with_data=False)
 
 
+async def create_adv_sub(call: types.CallbackQuery, state: FSMContext):
+    user = await get_user(call.from_user.id)
+    if user.user_adv_token:
+        status = await get_status(user.user_adv_token)
+        if status in ('CREATED', 'APPROVED'):
+            token = user.user_adv_token
+        else:
+            token = await create_payment_token(usd=1)
+            await update_user_sql(call.from_user.id, user_adv_token=token)
+    else:
+        token = await create_payment_token(usd=1)
+        await update_user_sql(call.from_user.id, user_adv_token=token)
+
+    kb = await payment_kb_adv(token)
+    await call.message.edit_text(text=_('💲 Вартість підписки 15$ на 7 днів.\n\n'
+                                        'Оплатіть підписку натиснувши на кнопку нижче 👇'), reply_markup=kb)
+    # sub_seconds = call.data + time.time()
+    # await update_user_sql(call.from_user.id, advert_subscribe_time=sub_seconds)
+    # await call.message.edit_text(text='✅ Підписку успішно ')
+
+
+async def update_adv_payment_status(call: types.CallbackQuery, state: FSMContext):
+    token = call.data.split('_')[1]
+    payment = await payment_approved(token)
+    if payment:
+        await update_user_sql(call.from_user.id, advert_subscribe_time=604800 + time.time())
+        await call.message.edit_text(text=_('✅ Вітаю! Підписку на виставлення оголошень успішно оформлено на 7 днів.'),
+                                     reply_markup=main_kb)
+    else:
+        kb = await payment_kb_adv(token)
+        try:
+            await call.message.edit_text(text=_('⚠️ Оплату не зафіксовано'), reply_markup=kb)
+        except:
+            pass
+        return
+
+
 def register_client_handlers(dp: Dispatcher):
     dp.middleware.setup(HiddenUser())
     dp.middleware.setup(i18n)
@@ -892,8 +957,9 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(accept_lot, Text(startswith='accept_lot'), state='*')
     dp.register_callback_query_handler(decline_lot, Text(startswith='decline_lot'), state='*')
 
+    dp.register_callback_query_handler(accept_adv, Text(startswith='adv_deletion_'), state='*')
     dp.register_callback_query_handler(accept_adv, Text(startswith='accept_adv'), state='*')
-    # dp.register_callback_query_handler(decline_adv, Text(startswith='decline_lot'), state='*')
+    dp.register_callback_query_handler(decline_adv, Text(startswith='decline_adv'), state='*')
 
     dp.register_callback_query_handler(help_, Text(equals='help'))
 
@@ -904,3 +970,5 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_message_handler(send_answer, state=FSMClient.send_answer)
 
     dp.register_callback_query_handler(delete_question, Text(equals='delete_question'), state='*')
+    dp.register_callback_query_handler(update_adv_payment_status, Text(startswith='update_'), state='*')
+    dp.register_callback_query_handler(create_adv_sub, state=FSMClient.adv_sub_seconds)

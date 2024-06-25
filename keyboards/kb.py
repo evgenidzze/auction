@@ -85,3 +85,8 @@ black_list_btn = InlineKeyboardButton(text='🚫 Чорний список', cal
 payment_on_btn = InlineKeyboardButton(text='Увімкнути оплату', callback_data='on_payment')
 payment_of_btn = InlineKeyboardButton(text='Вимкнути оплату', callback_data='off_payment')
 back_to_admin = InlineKeyboardButton(text='❌Відміна', callback_data='admin')
+
+subscribe_adv_kb = InlineKeyboardMarkup()
+adv_7_days = InlineKeyboardButton(text=_('Оформити на 7 днів'), callback_data='604800')
+subscribe_adv_kb.add(adv_7_days).add(cancel_btn)
+

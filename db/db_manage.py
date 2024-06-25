@@ -27,6 +27,8 @@ class User(Base):
                                                                default=datetime.time(hour=0, minute=10, second=0))
     anti_sniper: Mapped[datetime.time] = mapped_column(nullable=False,
                                                        default=datetime.time(hour=0, minute=10, second=0))
+    advert_subscribe_time: Mapped[int] = mapped_column(nullable=False, default='0')
+    user_adv_token: Mapped[str] = mapped_column(type_=String(255), nullable=True)
 
     def __repr__(self):
         return f'<User {self.telegram_id}>'

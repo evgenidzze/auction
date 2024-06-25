@@ -1,5 +1,6 @@
 import datetime
 import re
+import time
 from typing import List
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -9,7 +10,7 @@ from telegraph import Telegraph
 from create_bot import bot, scheduler, job_stores
 from db.db_manage import get_lot, get_user, delete_lot_sql, update_lot_sql, Question, messages_count, \
     Answer, get_adv, delete_adv_sql
-from keyboards.kb import decline_lot_btn, accept_lot_btn, main_kb
+from keyboards.kb import decline_lot_btn, accept_lot_btn, main_kb, back_to_main_btn
 from utils.paypal import create_payment_token, get_status, capture
 from create_bot import _
 
@@ -30,9 +31,9 @@ async def lot_ending(job_id, msg_id: types.Message):
                                           'Очікуйте повідомлення від продавця.', locale=bidder.language).format(
                                        desc=lot.description[:25]),
                                    parse_mode='html', reply_markup=main_kb)
-            token = await create_payment_token()
+            token = await create_payment_token(usd=5)
             await update_lot_sql(paypal_token=token, lot_id=job_id)
-            kb = await payment_kb_generate(bidder_telegram_id, token, job_id, owner_locale=owner.language)
+            kb = await contact_payment_kb_generate(bidder_telegram_id, token, job_id, owner_locale=owner.language)
             redis_instance = job_stores.get('default')
             payment_enabled = redis_instance.redis.get(name='payment')
             if payment_enabled and payment_enabled.decode('utf-8') == 'on':
@@ -204,7 +205,7 @@ async def send_post_fsm(fsm_data, user_id, is_ad=None):
                                currency=currency, photos_link=photos_link, city=city)
 
 
-async def payment_kb_generate(bidder_telegram_id, token, lot_id, owner_locale):
+async def contact_payment_kb_generate(bidder_telegram_id, token, lot_id, owner_locale):
     payment_url = await payment_link_generate(token)
     pay_btn = InlineKeyboardButton(text='5.00 USD', url=str(payment_url))
     get_contact_btn = InlineKeyboardButton(text=_('Отримати контакт', locale=owner_locale),
@@ -220,7 +221,7 @@ async def payment_approved(paypal_token):
 
 
 async def payment_link_generate(token):
-    return f'https://www.sandbox.paypal.com/checkoutnow?token={token}'
+    return f'https://www.paypal.com/checkoutnow?token={token}'
 
 
 async def new_bid_caption(lot_post, first_name, price, currency, owner_locale, bid_count, photos_link):
@@ -360,10 +361,32 @@ async def save_sent_media(messages, photos_id, videos_id, state, is_ad=False):
             else:
                 await message.answer(text=_('❌ Надішліть фото або відео.'), parse_mode='html')
                 return False
-                # from handlers.client import ask_media, ask_media_ad
-                # if is_ad:
-                #     await ask_media_ad(message, state)
-                # else:
-                #     await ask_media(message, state)
-                # return
     return html
+
+
+async def adv_sub_time_remain(user_id):
+    user = await get_user(user_id)
+    adv_sub_time: int = user.advert_subscribe_time
+    time_remain = adv_sub_time - time.time()
+    if time_remain > 0:
+        return True
+    else:
+        return False
+
+
+async def user_have_approved_adv_token(user_id) -> bool:
+    user = await get_user(user_id)
+    token = user.user_adv_token
+    if token:
+        return await payment_approved(token)
+    else:
+        return False
+
+
+async def payment_kb_adv(token):
+    update_status_btn = InlineKeyboardButton(text=_('🔄 Оновити статус'), callback_data=f'update_{token}')
+    payment_url = await payment_link_generate(token)
+    pay_kb = InlineKeyboardMarkup()
+    pay_btn = InlineKeyboardButton(text=_('Оплатити 15$'), url=payment_url)
+    pay_kb.add(pay_btn).add(update_status_btn).add(back_to_main_btn)
+    return pay_kb

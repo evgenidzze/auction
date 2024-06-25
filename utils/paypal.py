@@ -3,7 +3,6 @@ import requests
 from utils.config import PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET
 
 
-
 async def get_access_token():
     url = "https://api-m.paypal.com/v1/oauth2/token"  # Ось тут додано '/v1/oauth2/token'
     data = {
@@ -12,12 +11,13 @@ async def get_access_token():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
+
     response = requests.post(url, auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET), headers=headers, data=data)
     access_token = response.json()["access_token"]
     return access_token
 
 
-async def create_payment_token():
+async def create_payment_token(usd):
     access_token = await get_access_token()
     url = "https://api-m.paypal.com/v2/checkout/orders"
     headers = {
@@ -29,8 +29,8 @@ async def create_payment_token():
         "purchase_units": [
             {
                 "amount": {
-                    "currency_code": "USD",
-                    "value": "5.00"
+                    "currency_code": "RUB",
+                    f"value": f"{usd}.00"
                 }
             }
         ],
@@ -68,4 +68,3 @@ async def get_status(order_id):
     response = requests.get(f"https://api-m.paypal.com/v2/checkout/orders/{order_id}", headers=headers)
     order_status = response.json().get('status')
     return order_status
-
