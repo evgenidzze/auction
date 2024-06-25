@@ -79,7 +79,7 @@ class Lot(Base):
 
 class Advertisement(Base):
     __tablename__ = 'Advertisement'
-    id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, nullable=False, autoincrement=True, unique=True)
     owner_telegram_id: Mapped[str] = mapped_column(ForeignKey('User.telegram_id'), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     photo_id: Mapped[str] = mapped_column(String(255), nullable=True)
