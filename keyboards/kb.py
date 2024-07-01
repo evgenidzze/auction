@@ -6,13 +6,14 @@ ua_btn = InlineKeyboardButton(text=_('🇺🇦 Українська'), callback_
 language_kb = InlineKeyboardMarkup(row_width=1).add(ua_btn, eng_btn)
 
 my_auctions_btn = InlineKeyboardButton(_('🗃 Мої лоти      ⠀⠀⠀⠀⠀⠀⠀'), callback_data='my_auctions')
+my_ads_btn = InlineKeyboardButton(_('📋 Мої оголошення   ⠀⠀⠀'), callback_data='my_ads')
 # settings_btn = InlineKeyboardButton('⚙️ Налаштування', callback_data='settings')
 help_btn = InlineKeyboardButton(_('🆘 Допомога ⠀   ⠀⠀⠀⠀⠀⠀'), callback_data='help')
-create_auction = InlineKeyboardButton(_('🏷 Створити лот     ⠀⠀⠀⠀'), callback_data='create_auction')
+create_auction_btn = InlineKeyboardButton(_('🏷 Створити лот     ⠀⠀⠀⠀'), callback_data='create_auction')
 anti_sniper_btn = InlineKeyboardButton(_('⏱ Антиснайпер      ⠀⠀⠀⠀'), callback_data='anti_sniper')
 chats_btn = InlineKeyboardButton(_('💬 Повідомлення'), callback_data='chats')
-advert_btn = InlineKeyboardButton(_('📣 Створити оголошення'), callback_data='create_ad')
-main_kb = InlineKeyboardMarkup(row_width=1).add(create_auction,advert_btn, my_auctions_btn, anti_sniper_btn, chats_btn,
+create_advert_btn = InlineKeyboardButton(_('📣 Створити оголошення'), callback_data='create_ad')
+main_kb = InlineKeyboardMarkup(row_width=1).add(create_auction_btn, create_advert_btn, my_auctions_btn, my_ads_btn, anti_sniper_btn, chats_btn,
                                                 help_btn)
 
 back_to_main_btn = InlineKeyboardButton(_('« Назад'), callback_data='main_menu')
@@ -37,10 +38,14 @@ publish_adv_btn = InlineKeyboardButton(text=_('✅ Опублікувати'), c
 ready_to_publish_kb = InlineKeyboardMarkup().add(change_media_btn).add(change_description_btn).add(
     change_start_price_btn).add(change_duration_btn).add(change_steps_btn).add(change_city_btn)
 ready_to_publish_ad_kb = InlineKeyboardMarkup().add(change_media_btn).add(change_description_btn).add(change_city_btn)
+
 delete_lot_btn = InlineKeyboardButton(text=_('🗑 Видалити лот'), callback_data='delete_lot')
-delete_kb = InlineKeyboardMarkup().add(delete_lot_btn).add(
+delete_lot_kb = InlineKeyboardMarkup().add(delete_lot_btn).add(
     InlineKeyboardButton(text=_('« Назад'), callback_data='my_auctions'))
-# bets_kb = InlineKeyboardMarkup(row_width=3).add(bet_500_btn, bet_1000_btn, bet_2000_btn)
+
+delete_ad_btn = InlineKeyboardButton(text=_('🗑 Видалити оголошення'), callback_data='delete_ad')
+delete_ad_kb = InlineKeyboardMarkup().add(delete_ad_btn).add(
+    InlineKeyboardButton(text=_('« Назад'), callback_data='my_ads'))
 
 back_to_ready_btn = InlineKeyboardButton(text=_('« Назад'), callback_data='back_to_ready')
 back_to_ready_kb = InlineKeyboardMarkup().add(back_to_ready_btn)

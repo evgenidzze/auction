@@ -13,13 +13,13 @@ from create_bot import bot, scheduler, i18n, _, storage_group
 from db.db_manage import add_new_user, create_lot, get_lot, make_bid_sql, get_user_lots, delete_lot_sql, \
     get_user, update_user_sql, update_lot_sql, create_question, get_question, \
     create_answer, get_question_or_answer, get_answer, delete_answer, delete_question_db, User, create_adv, get_adv, \
-    update_adv_sql, delete_adv_sql
+    update_adv_sql, delete_adv_sql, get_user_ads
 from handlers.middleware import HiddenUser
 from keyboards.kb import language_kb, main_kb, cancel_kb, lot_time_kb, \
-    create_auction, back_to_main_btn, cancel_btn, delete_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
+    create_auction_btn, back_to_main_btn, cancel_btn, delete_lot_kb, back_to_ready_kb, back_to_ready_btn, currency_kb, \
     decline_lot_deletion_btn, accept_lot_deletion_btn, anti_kb, ready_to_publish_kb, publish_btn, quest_answ_kb, \
     back_to_messages, back_to_questions_kb, back_to_answers_kb, back_to_answers_btn, back_to_questions, \
-    ready_to_publish_ad_kb, publish_adv_btn, back_to_ready_ad_kb, subscribe_adv_kb
+    ready_to_publish_ad_kb, publish_adv_btn, back_to_ready_ad_kb, subscribe_adv_kb, create_advert_btn, delete_ad_kb
 from utils.config import AUCTION_CHANNEL, ADVERT_CHANNEL
 from utils.paypal import create_payment_token, get_status
 from utils.utils import lot_ending, create_user_lots_kb, send_post, payment_approved, contact_payment_kb_generate, \
@@ -31,6 +31,7 @@ ADMINS = [397875584, 432530900]
 
 
 class FSMClient(StatesGroup):
+    change_ad = State()
     adv_sub_seconds = State()
     change_media_ad = State()
     city_ad = State()
@@ -222,9 +223,18 @@ async def send_answer(message: types.Message, state: FSMContext):
 async def my_auctions(call: types.CallbackQuery):
     lots = await get_user_lots(call.from_user.id)
     kb = await create_user_lots_kb(lots)
-    kb.add(create_auction, back_to_main_btn)
+    kb.add(create_auction_btn, back_to_main_btn)
     await FSMClient.change_lot.set()
     await call.message.edit_text(text=_('Оберіть існуючий аукціон або створіть новий:'), parse_mode='html',
+                                 reply_markup=kb)
+
+
+async def my_ads(call: types.CallbackQuery):
+    ads = await get_user_ads(call.from_user.id)
+    kb = await create_user_lots_kb(ads)
+    kb.add(create_advert_btn, back_to_main_btn)
+    await FSMClient.change_ad.set()
+    await call.message.edit_text(text=_('Оберіть існуючe оголошення або створіть нове:'), parse_mode='html',
                                  reply_markup=kb)
 
 
@@ -353,7 +363,7 @@ async def lot_publish(message: types.CallbackQuery, state: FSMContext):
                         price_steps, currency=currency, city=city, lot_id=new_lot_id, moder_review=True,
                         photos_link=photos_link)
     await message.message.edit_text(
-        text=_("✅ Лот відправлено не модерацію, незабаром він з'явиться у каналі <b><a href='{invite_link}'>"
+        text=_("✅ Лот відправлено на модерацію, незабаром він з'явиться у каналі <b><a href='{invite_link}'>"
                "{username}</a></b>.").format(invite_link=channel.invite_link, username=channel.username),
         parse_mode='html', reply_markup=main_kb)
 
@@ -371,7 +381,6 @@ async def adv_publish(message, state):
         await send_advert(user_id=message.from_user.id, send_to_id=admin_id, description=description, city=city,
                           photos_link=photos_link, video_id=video_id, photo_id=photo_id,
                           moder_review=True,
-                          change_lot_view=None,
                           advert_id=new_adv_id)
     await message.message.edit_text(
         text=_("✅ Оголошення відправлено не модерацію, незабаром воно з'явиться у каналі <b><a href='{invite_link}'>"
@@ -446,8 +455,25 @@ async def show_lot(message: types.CallbackQuery, state: FSMContext):
     city = lot.city
     photos_link = lot.photos_link
     await send_post(message.from_user.id, message.from_user.id, photo_id, video_id, description, start_price,
-                    price_steps, currency=currency, city=city, change_lot_view=True, photos_link=photos_link)
-    await message.message.answer(text=_('Бажаєте видалити лот?'), reply_markup=delete_kb)
+                    price_steps, currency=currency, city=city, under_moderation=not lot.approved,
+                    photos_link=photos_link)
+    await message.message.answer(text=_('Бажаєте видалити лот?'), reply_markup=delete_lot_kb)
+
+
+async def show_ad(message: types.CallbackQuery, state: FSMContext):
+    ad_id = message.data
+    await state.update_data(change_ad=ad_id)
+    await state.reset_state(with_data=False)
+    ad = await get_adv(ad_id)
+    video_id = ad.video_id
+    photo_id = ad.photo_id
+    description = ad.description
+    city = ad.city
+    photos_link = ad.photos_link
+    approved = ad.approved
+    await send_advert(message.from_user.id, message.from_user.id, description, city, photos_link, video_id, photo_id,
+                      under_moderation=not approved)
+    await message.message.answer(text=_('Бажаєте видалити оголошення?'), reply_markup=delete_ad_kb)
 
 
 async def change_media(call: types.CallbackQuery, state: FSMContext):
@@ -572,6 +598,17 @@ async def delete_lot(call: types.CallbackQuery, state: FSMContext):
         await delete_lot_sql(lot_id)
 
 
+async def delete_ad(call: types.CallbackQuery, state: FSMContext):
+    fsm_data = await state.get_data()
+    ad_id = fsm_data.get('change_ad')
+    ad = await get_adv(ad_id)
+    if ad.post_link:
+        await bot.delete_message(chat_id=ADVERT_CHANNEL, message_id=ad.message_id)
+
+    await call.message.edit_text(_('✅ Оголошення видалено.'), reply_markup=main_kb)
+    await delete_adv_sql(ad_id)
+
+
 async def time_left_popup(call: types.CallbackQuery):
     data = call.data.split('_')
     lot_id = data[-1]
@@ -613,10 +650,10 @@ async def accept_lot(call: types.CallbackQuery, state: FSMContext):
             msg = await send_post(owner_id, AUCTION_CHANNEL, photo_id, video_id, description, start_price,
                                   price_steps, currency=currency, city=city, lot_id=new_lot_id, moder_review=None,
                                   photos_link=photos_link)
-            await update_lot_sql(lot_id=new_lot_id, lot_link=msg.url, message_id=msg.message_id)
+            await update_lot_sql(lot_id=new_lot_id, lot_link=msg.url, message_id=msg.message_id, approved=1)
             scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, hours=lot.lot_time_living,
                               kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
-            # scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, seconds=20,
+            # scheduler.add_job(lot_ending, trigger='interval', id=new_lot_id, seconds=5,
             #                   kwargs={'job_id': new_lot_id, 'msg_id': msg.message_id})
             channel = await bot.get_chat(chat_id=AUCTION_CHANNEL)
             await call.answer()
@@ -651,11 +688,11 @@ async def accept_adv(call: types.CallbackQuery):
             msg = await send_advert(user_id=owner_id, send_to_id=ADVERT_CHANNEL, photo_id=photo_id, video_id=video_id,
                                     description=description, city=city, advert_id=new_adv_id, moder_review=None,
                                     photos_link=photos_link)
-            await update_adv_sql(adv_id=new_adv_id, post_link=msg.url, message_id=msg.message_id)
-            # scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, hours=168,
-            #                   kwargs={'job_id': new_adv_id, 'msg_id': msg.message_id})
-            scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, seconds=20,
+            await update_adv_sql(adv_id=new_adv_id, post_link=msg.url, message_id=msg.message_id, approved=1)
+            scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, hours=168,
                               kwargs={'job_id': new_adv_id, 'msg_id': msg.message_id})
+            # scheduler.add_job(adv_ending, trigger='interval', id=new_adv_id, seconds=20,
+            #                   kwargs={'job_id': new_adv_id, 'msg_id': msg.message_id})
             channel = await bot.get_chat(chat_id=ADVERT_CHANNEL)
             await call.answer()
             text = _("✅ Готово!\n"
@@ -724,7 +761,10 @@ async def lot_deletion(call: types.CallbackQuery):
             text = _('✅ Ваш лот <b>{desc}...</b> видалено').format(desc=lot.description[:15])
             await call.message.edit_text(_('✅ Лот видалено.'), reply_markup=main_kb)
             await delete_lot_sql(lot_id)
-            scheduler.remove_job(lot_id)
+            try:
+                scheduler.remove_job(lot_id)
+            except:
+                ...
             await bot.delete_message(chat_id=AUCTION_CHANNEL, message_id=lot.message_id)
         elif action == 'decline':
             text = _('❌ Ваш лот <b>{desc}...</b> не видалено.\n'
@@ -907,6 +947,7 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(get_contact, Text(startswith='get_winner'), state='*')
     dp.register_callback_query_handler(main_menu, state=FSMClient.language)
     dp.register_callback_query_handler(my_auctions, Text(equals='my_auctions'), state='*')
+    dp.register_callback_query_handler(my_ads, Text(equals='my_ads'), state='*')
     dp.register_callback_query_handler(my_chats, Text(equals='chats'), state='*')
     dp.register_callback_query_handler(question_list, Text(equals='questions'), state='*')
     dp.register_callback_query_handler(answer_question, state=FSMClient.choose_question)
@@ -934,6 +975,7 @@ def register_client_handlers(dp: Dispatcher):
 
     dp.register_callback_query_handler(make_bid, Text(startswith='bid'))
     dp.register_callback_query_handler(show_lot, state=FSMClient.change_lot)
+    dp.register_callback_query_handler(show_ad, state=FSMClient.change_ad)
 
     dp.register_callback_query_handler(change_media, Text(equals='change_media'))
     dp.register_callback_query_handler(change_desc, Text(equals='change_desc'))
@@ -950,6 +992,7 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_message_handler(set_price_steps, state=FSMClient.change_price_steps)
     dp.register_message_handler(set_new_city, state=FSMClient.change_city)
 
+    dp.register_callback_query_handler(delete_ad, Text(equals='delete_ad'))
     dp.register_callback_query_handler(delete_lot, Text(equals='delete_lot'))
     dp.register_callback_query_handler(time_left_popup, Text(startswith='time_left'))
 
@@ -957,7 +1000,6 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(accept_lot, Text(startswith='accept_lot'), state='*')
     dp.register_callback_query_handler(decline_lot, Text(startswith='decline_lot'), state='*')
 
-    dp.register_callback_query_handler(accept_adv, Text(startswith='adv_deletion_'), state='*')
     dp.register_callback_query_handler(accept_adv, Text(startswith='accept_adv'), state='*')
     dp.register_callback_query_handler(decline_adv, Text(startswith='decline_adv'), state='*')
 

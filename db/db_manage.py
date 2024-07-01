@@ -181,6 +181,13 @@ async def get_adv(adv_id):
             return res[0]
 
 
+async def get_user_ads(user_id):
+    async with async_session() as session:
+        stmt = select(Advertisement).where(Advertisement.owner_telegram_id == user_id)
+        res = await session.execute(stmt)
+        return res.fetchall()
+
+
 async def get_user_lots(user_id):
     async with async_session() as session:
         stmt = select(Lot).where(Lot.owner_telegram_id == user_id)

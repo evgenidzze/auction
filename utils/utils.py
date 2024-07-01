@@ -23,9 +23,9 @@ async def lot_ending(job_id, msg_id: types.Message):
         owner_tg = await bot.get_chat(owner_telegram_id)
         owner = await get_user(owner_telegram_id)
         bidder_telegram_id = lot.bidder_telegram_id
-        bidder = await get_user(bidder_telegram_id)
-        winner_tg = await bot.get_chat(bidder_telegram_id)
         if bidder_telegram_id:
+            bidder = await get_user(bidder_telegram_id)
+            winner_tg = await bot.get_chat(bidder_telegram_id)
             await bot.send_message(chat_id=bidder_telegram_id,
                                    text=_('🏆 Вітаю! Ви перемогли у аукціоні <b>{desc}</b>\n'
                                           'Очікуйте повідомлення від продавця.', locale=bidder.language).format(
@@ -115,7 +115,7 @@ async def create_user_lots_kb(lots):
 async def send_post(user_id, send_to_id, photo_id, video_id, description, start_price, price_steps, currency, city,
                     photos_link=None,
                     lot_id=None,
-                    moder_review=None, change_lot_view=None):
+                    moder_review=None, under_moderation=None):
     user = await get_user(user_id=user_id)
     anti_sniper: datetime.time = user.anti_sniper
     kb = await create_price_step_kb(price_steps, lot_id, currency)
@@ -130,7 +130,7 @@ async def send_post(user_id, send_to_id, photo_id, video_id, description, start_
         kb.add(InlineKeyboardButton(text='⏳', callback_data=f'time_left_{lot_id}'))
         kb.add(InlineKeyboardButton(text=_('💬 Задати питання автору'),
                                     url=await get_start_link(f'question_{user_id}_{lot_id}', encode=True)))
-        if change_lot_view:
+        if under_moderation:
             caption = _('<i>⚠️ Ваш лот проходить модерацію...\n</i>')
 
     caption += _("<b>{description}</b>\n\n"
@@ -155,8 +155,7 @@ async def send_post(user_id, send_to_id, photo_id, video_id, description, start_
 
 async def send_advert(user_id, send_to_id, description, city, photos_link, video_id, photo_id,
                       moder_review=None,
-                      change_lot_view=None,
-                      advert_id=None):
+                      advert_id=None, under_moderation=None):
     user = await get_user(user_id=user_id)
     caption = ''
     user_tg = await bot.get_chat(user.telegram_id)
@@ -171,8 +170,8 @@ async def send_advert(user_id, send_to_id, description, city, photos_link, video
         kb.add(InlineKeyboardButton(text='⏳', callback_data=f'time_left_{advert_id}'))
         kb.add(InlineKeyboardButton(text=_('💬 Задати питання автору'),
                                     url=f'https://t.me/{user_tg.username}'))
-        if change_lot_view:
-            caption = _('<i>⚠️ Ваше оголошення проходить модерацію...\n</i>')
+        if under_moderation:
+            caption = _('<i>⚠️ Ваш лот проходить модерацію...\n</i>')
 
     caption += _("<b>{description}</b>\n\n"
                  "🏙 <b>Місто:</b> {city}\n").format(description=description, city=city)
@@ -237,14 +236,16 @@ async def new_bid_caption(lot_post, first_name, price, currency, owner_locale, b
     return caption
 
 
-async def translate_kb(kb: InlineKeyboardMarkup, locale, owner_id):
+async def translate_kb(kb: InlineKeyboardMarkup, locale, owner_id, no_spaces=False):
     if kb:
         for row in kb.inline_keyboard:
             for button in row:
                 if any(word in button.text for word in ('Повідомлення', 'Messages')):
-                    # button.text = ' '.join(button.text.split(' ')[:2])
                     pass
-                button.text = _(button.text, locale=locale)
+                if no_spaces:
+                    button.text = _(button.text, locale=locale).rstrip().replace('⠀', '')
+                else:
+                    button.text = _(button.text, locale=locale)
                 if any(text in button.text for text in
                        ('💬 Повідомлення', '💬 Messages', '❔ Запитання', "❔ Questions", '💬 Answers', "💬 Відповіді")):
                     if any(text in button.text for text in ('Повідомлення', 'Messages')):

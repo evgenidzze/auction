@@ -131,10 +131,10 @@ msgstr "💬 You received a question about lot <a href='{lot_link}'><b>{lot_desc
 #: handlers/client.py:98
 msgid ""
 "Вітаю, <b>{first_name}!</b><a "
-"href='https://telegra.ph/file/5f63d10b734d545a032cc.jpg'>⠀</a>\n"
+"href='https://telegra.ph/file/3f6168cc5f94f115331ac.png'>⠀</a>\n"
 msgstr ""
 "Welcome, <b>{first_name}!</b><a "
-"href='https://telegra.ph/file/5f63d10b734d545a032cc.jpg'>⠀</a>\n"
+"href='https://telegra.ph/file/3f6168cc5f94f115331ac.png'>⠀</a>\n"
 
 #: handlers/client.py:112
 msgid "👇 Оберіть варіант:"
@@ -158,7 +158,7 @@ msgstr ""
 
 #: handlers/client.py:146 handlers/client.py:187
 msgid "✅ Повідомлення видалено"
-msgstr "✅ Deletion rejected."
+msgstr "✅ Message deleted."
 
 #: handlers/client.py:159 handlers/client.py:161
 msgid "👇 Оберіть відповідь щоб прочитати:"
@@ -285,7 +285,15 @@ msgstr ""
 "✅ The lot has been sent for moderation, it will soon appear in the "
 "channel <b><a href='{invite_link}'>{username}</a></b>."
 
-#: handlers/client.py:377
+#: handlers/client.py:380
+msgid ""
+"✅ Оголошення відправлено на модерацію, незабаром воно з'явиться у каналі "
+"<b><a href='{invite_link}'>{username}</a></b>."
+msgstr ""
+"✅ The ad has been sent for moderation, it will soon appear in the channel "
+"<b><a href='{invite_link}'>{username}</a></b>."
+
+#: handlers/client.py:398
 msgid "❌ На свій лот не можна робити ставку."
 msgstr "❌ You cannot place a bet on your own lot."
 
@@ -381,9 +389,27 @@ msgstr "The lot has already been published."
 msgid "Лот вже відхилено."
 msgstr "The lot has already been rejected."
 
+msgid ""
+"✅ Готово!\n"
+"Оголошення <b><a href='{msg_url}'>{desc}...</a></b> опубліковано в каналі"
+" <b><a href='{channel_link}'>{channel_name}</a></b>"
+msgstr ""
+" ✅ Done!\n"
+"Ad <b><a href='{msg_url}'>{desc}...</a></b> has been posted to the channel"
+" <b><a href='{channel_link}'>{channel_name}</a></b>"
+
+msgid "Оголошення вже опубліковано."
+msgstr "The ad has already been published."
+
+msgid "Оголошення вже відхилено."
+msgstr "The ad has already been rejected."
+
 #: handlers/client.py:609
 msgid "❗️Нажаль ваш лот <b>{desc}...</b> не пройшов модерацію."
 msgstr "❗️Unfortunately, your lot <b>{desc}...</b> has not been moderated."
+
+msgid "❗️Нажаль ваше оголошення <b>{desc}...</b> не пройшло модерацію."
+msgstr "❗️Unfortunately, your ad <b>{desc}...</b> has not passed moderation."
 
 #: handlers/client.py:624
 msgid "✅ Ваш лот <b>{desc}...</b> видалено"
@@ -450,6 +476,43 @@ msgstr ""
 "❌ Payment is not recorded.\n"
 "To contact the winner, pay the fee and click <b>Get contact</b>."
 
+msgid "📝 Напишіть опис для оголошення:"
+msgstr "📝 Write a description for the ad:"
+
+msgid "ℹ️ Щоб виставити оголошення, потрібно оформити підписку."
+msgstr "ℹ️ To post an ad, you need to subscribe."
+
+msgid ""
+"⬆️ Оголошення готове до публікації!\n"
+"Перевірте всю інформацію і натисніть <b>✅ Опублікувати</b>, коли будете "
+"готові."
+msgstr ""
+"⬆️ The ad is ready for publication!\n"
+"Check all information and press <b> ✅ Publish</b> when you are "
+"ready."
+
+msgid ""
+"Оголошення готове!\n"
+"Опублікувати?"
+msgstr ""
+"Ad is ready!\n"
+"Publish?"
+
+msgid ""
+"💲 Вартість підписки 15$ на 7 днів.\n"
+"\n"
+"Оплатіть підписку натиснувши на кнопку нижче 👇"
+msgstr ""
+"💲 Subscription price is $15 for 7 days."
+"\n"
+"Pay for your subscription by clicking on the button below 👇"
+
+msgid "✅ Вітаю! Підписку на виставлення оголошень успішно оформлено на 7 днів."
+msgstr "✅ Congratulations! You have successfully subscribed to display ads for 7 days."
+
+msgid "⚠️ Оплату не зафіксовано"
+msgstr "⚠️ Payment not completed"
+
 #: handlers/middleware.py:16 handlers/middleware.py:25
 msgid ""
 "Щоб користуватись ботом потрібно створити або зробити публічним юзернейм "
@@ -479,7 +542,7 @@ msgid "🏷 Створити лот     ⠀⠀⠀⠀"
 msgstr "🏷 Create lot    ⠀"
 
 msgid "📣 Створити оголошення"
-msgstr "📣 Create ad⠀⠀"
+msgstr "📣 Create ad ⠀⠀"
 
 #: keyboards/kb.py:12
 msgid "⏱ Антиснайпер      ⠀⠀⠀⠀"
@@ -488,6 +551,9 @@ msgstr "⏱ Antisniper    ⠀"
 #: keyboards/kb.py:13
 msgid "💬 Повідомлення"
 msgstr "💬 Messages"
+
+msgid "📣 Створити оголошення"
+msgstr "📣 Create an advertisement"
 
 #: keyboards/kb.py:16 keyboards/kb.py:17 keyboards/kb.py:39 keyboards/kb.py:42
 #: keyboards/kb.py:70 keyboards/kb.py:73
@@ -574,9 +640,55 @@ msgstr "💬 Answers"
 msgid "🗑 Видалити"
 msgstr "🗑 Delete lot"
 
+msgid "Оформити на 7 днів"
+msgstr "Subscribe for 7 days"
+
 msgid ""
 "🏆 Аукціон <b>{desc}</b> завершено!\n"
 "Можете зв'язатись з переможцем https://t.me/{username}."
 msgstr ""
-"<b>📦 Lot {desc}...</b>\n"
+"🏆 Auction <b>{desc}</b> completed!\n"
 "You can contact the winner https://t.me/{username}."
+
+msgid ""
+"⚠️ У вашого оголошення <b>{desc}...</b> завершився термін і його було "
+"видалено."
+msgstr ""
+"⚠️ Your ad <b>{desc}...</b> has expired and has been "
+"removed."
+
+msgid ""
+"<i>https://t.me/{username} - надіслав оголошення на модерацію.\n"
+"</i>"
+msgstr ""
+"<i>https://t.me/{username} - sent an ad for moderation.\n"
+"</i>"
+
+msgid ""
+"<i>⚠️ Ваше оголошення проходить модерацію...\n"
+"</i>"
+msgstr ""
+"<i>⚠️ Your ad is being moderated...\n"
+"</i>"
+
+msgid "🔄 Оновити статус"
+msgstr "🔄 Update Status"
+
+#: utils/utils.py:390
+msgid "Оплатити 15$"
+msgstr "Pay $15"
+
+msgid '📋 Мої оголошення   ⠀⠀⠀'
+msgstr "📋 My ads    ⠀⠀⠀"
+
+msgid 'Оберіть існуючe оголошення або створіть нове:'
+msgstr 'Choose an existing ad or create a new one:'
+
+msgid 'Бажаєте видалити оголошення?'
+msgstr 'Do you want to remove the ad?'
+
+msgid '🗑 Видалити оголошення'
+msgstr '🗑 Remove ad'
+
+msgid '✅ Оголошення видалено.'
+msgstr '✅ The ad has been removed.'

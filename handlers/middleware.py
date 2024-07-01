@@ -61,8 +61,13 @@ class MyBot(Bot):
                                 ) -> types.Message or base.Boolean:
         from utils.utils import translate_kb
         from create_bot import i18n
+        from keyboards.kb import main_kb
         user_locale = await i18n.get_user_locale(action="action", args=(chat_id,))
-        reply_markup = await translate_kb(deepcopy(reply_markup), user_locale, owner_id=chat_id)
+        if reply_markup == main_kb:
+            reply_markup = await translate_kb(deepcopy(reply_markup), user_locale, owner_id=chat_id)
+        else:
+            reply_markup = await translate_kb(deepcopy(reply_markup), user_locale, owner_id=chat_id, no_spaces=True)
+
         return await super().edit_message_text(text=text,
                                                chat_id=chat_id,
                                                message_id=message_id,
